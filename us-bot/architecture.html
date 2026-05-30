@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading System Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0d0d0b;
+  --paper: #f2f0e8;
+  --paper2: #e8e5d8;
+  --accent: #ff4d00;
+  --accent2: #00c896;
+  --accent3: #6b5ce7;
+  --gold: #f5a623;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  overflow-x: hidden;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 48px 64px;
+  border-bottom: 3px solid var(--ink);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: 'SYS';
+  position: absolute;
+  font-family: var(--sans);
+  font-size: 40vw;
+  font-weight: 800;
+  color: rgba(0,0,0,0.04);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  letter-spacing: -0.05em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  animation: fadeDown 0.6s ease both;
+}
+
+.hero-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 6px 14px;
+}
+
+.hero-date {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #888;
+  letter-spacing: 0.08em;
+}
+
+.hero-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 60px 0;
+}
+
+h1 {
+  font-family: var(--sans);
+  font-size: clamp(56px, 10vw, 140px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  animation: fadeUp 0.7s 0.1s ease both;
+}
+
+h1 span { color: var(--accent); }
+
+.hero-desc {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: #666;
+  margin-top: 32px;
+  max-width: 560px;
+  line-height: 1.8;
+  animation: fadeUp 0.7s 0.2s ease both;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--ink);
+  animation: fadeUp 0.7s 0.3s ease both;
+}
+
+.hstat {
+  flex: 1;
+  padding: 24px 32px;
+  border-right: 1px solid var(--ink);
+}
+.hstat:last-child { border-right: none; }
+.hstat-val {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.hstat-val.orange { color: var(--accent); }
+.hstat-val.green  { color: var(--accent2); }
+.hstat-val.purple { color: var(--accent3); }
+.hstat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+/* ── SECTIONS ── */
+.section {
+  padding: 80px 64px;
+  border-bottom: 3px solid var(--ink);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 56px;
+}
+
+.section-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #aaa;
+  letter-spacing: 0.1em;
+}
+
+h2 {
+  font-size: clamp(32px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* ── BOT GRID ── */
+.bot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  background: var(--ink);
+  border: 3px solid var(--ink);
+}
+
+.bot-card {
+  background: var(--paper);
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s;
+}
+
+.bot-card:hover { background: var(--paper2); }
+
+.bot-card::after {
+  content: attr(data-num);
+  position: absolute;
+  bottom: -20px;
+  right: -10px;
+  font-size: 120px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.05);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.bot-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+.bot-tag.live   { border-color: var(--accent2); color: var(--accent2); background: rgba(0,200,150,0.08); }
+.bot-tag.dry    { border-color: var(--gold);    color: var(--gold);    background: rgba(245,166,35,0.08); }
+.bot-tag.both   { border-color: var(--accent3); color: var(--accent3); background: rgba(107,92,231,0.08); }
+
+.bot-name {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.bot-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+.bot-metrics {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.bot-metric { }
+.bm-val {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+}
+.bm-val.pos { color: var(--accent2); }
+.bm-val.neg { color: var(--accent); }
+.bm-val.neu { color: var(--accent3); }
+.bm-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.bot-stack {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stack-pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 10px;
+  background: var(--ink);
+  color: var(--paper);
+  letter-spacing: 0.05em;
+}
+
+/* ── ARCH DIAGRAM ── */
+.arch-diagram {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr 60px 1fr;
+  align-items: center;
+  gap: 0;
+  margin: 48px 0;
+}
+
+.arch-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.arch-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--ink);
+}
+
+.arch-box {
+  border: 2px solid var(--ink);
+  padding: 20px 24px;
+  position: relative;
+  background: var(--paper);
+  transition: background 0.15s;
+}
+
+.arch-box:hover { background: var(--ink); color: var(--paper); }
+.arch-box:hover .arch-box-label { color: rgba(255,255,255,0.5); }
+
+.arch-box-title {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.arch-box-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+
+.arch-box.highlight {
+  border-color: var(--accent);
+  background: rgba(255,77,0,0.05);
+}
+
+.arch-box.highlight:hover {
+  background: var(--accent);
+  color: white;
+}
+
+/* ── TIMELINE ── */
+.timeline {
+  position: relative;
+  padding-left: 48px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--ink);
+}
+
+.tl-item {
+  position: relative;
+  margin-bottom: 48px;
+  opacity: 0;
+  transform: translateX(-20px);
+  animation: slideIn 0.5s ease forwards;
+}
+
+.tl-item:nth-child(1) { animation-delay: 0.1s; }
+.tl-item:nth-child(2) { animation-delay: 0.2s; }
+.tl-item:nth-child(3) { animation-delay: 0.3s; }
+.tl-item:nth-child(4) { animation-delay: 0.4s; }
+.tl-item:nth-child(5) { animation-delay: 0.5s; }
+
+.tl-item::before {
+  content: '';
+  position: absolute;
+  left: -54px;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 2px solid var(--ink);
+}
+
+.tl-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.tl-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+
+.tl-body {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #666;
+  line-height: 1.7;
+  max-width: 600px;
+}
+
+/* ── INFRA TABLE ── */
+.infra-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  background: var(--ink);
+  border: 3px solid var(--ink);
+  margin-top: 40px;
+}
+
+.infra-card {
+  background: var(--paper);
+  padding: 32px;
+}
+
+.infra-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.infra-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.infra-detail {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #666;
+  line-height: 1.7;
+}
+
+/* ── NEXT STEPS ── */
+.next-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  background: var(--ink);
+  border: 3px solid var(--ink);
+}
+
+.next-card {
+  background: var(--paper);
+  padding: 32px 28px;
+}
+
+.next-num {
+  font-family: var(--mono);
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(0,0,0,0.08);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.next-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.next-body {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #777;
+  line-height: 1.7;
+}
+
+.next-when {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 16px;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 40px 64px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #aaa;
+  border-top: 3px solid var(--ink);
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 900px) {
+  .hero, .section { padding: 40px 24px; }
+  .bot-grid, .infra-grid, .next-grid { grid-template-columns: 1fr; }
+  .arch-diagram { grid-template-columns: 1fr; }
+  .arch-arrow { transform: rotate(90deg); }
+  .hero-stats { flex-direction: column; }
+  .hstat { border-right: none; border-bottom: 1px solid var(--ink); }
+}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #1c2538;padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;">
+  <a href="../index.html" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#3b9eff;text-decoration:none;white-space:nowrap;">TRADING FLEET</a>
+  <div style="display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;">
+    <a href="../index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">← Home</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇮🇳 Nifty</span>
+    <a href="../nifty/index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Overview</a>
+    <a href="../nifty/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <a href="../nifty/workflow.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Workflow</a>
+    <a href="../nifty/config.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Config</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇺🇸 US</span>
+    <a href="architecture.html" style="color:#3b9eff;text-decoration:none;padding:5px 10px;white-space:nowrap;background:rgba(59,158,255,0.1);border-radius:4px;">Architecture</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
+    <a href="../crypto/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-top">
+    <div class="hero-label">System Architecture — v2.0</div>
+    <div class="hero-date">May 2026 · OCI ARM · IBKR · Zerodha · Crypto</div>
+  </div>
+
+  <div class="hero-body">
+    <h1>ALGO<br>TRADING<br><span>STACK</span></h1>
+    <p class="hero-desc">
+      4 bots · 3 markets · 2 exchanges · 1 server<br>
+      India F&O + US Equity/Options + Crypto Spot + Crypto Futures<br>
+      Running on Oracle Cloud Infrastructure, always-free tier.
+    </p>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hstat">
+      <div class="hstat-val orange">4</div>
+      <div class="hstat-label">Active Bots</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val green">1 Live</div>
+      <div class="hstat-label">India F&O</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val purple">3 Dry</div>
+      <div class="hstat-label">US + Crypto</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val orange">₹0</div>
+      <div class="hstat-label">Cloud Cost/mo</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 1: BOTS -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>The Bots</h2>
+  </div>
+
+  <div class="bot-grid">
+
+    <!-- Zerodha -->
+    <div class="bot-card" data-num="1">
+      <div class="bot-tag live">Live</div>
+      <div class="bot-name">Zerodha India F&O</div>
+      <div class="bot-sub">Nifty · BankNifty · FinNifty · M1 Strategy</div>
+      <div class="bot-metrics">
+        <div class="bot-metric">
+          <div class="bm-val neg">-₹3,747</div>
+          <div class="bm-label">Nifty live P&L</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val pos">+₹48,087</div>
+          <div class="bm-label">FinnNifty dry</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val pos">+₹7,532</div>
+          <div class="bm-label">BankNifty dry</div>
+        </div>
+      </div>
+      <div class="bot-stack">
+        <span class="stack-pill">Python</span>
+        <span class="stack-pill">Kite Connect</span>
+        <span class="stack-pill">OCI AMD 1GB</span>
+        <span class="stack-pill">systemd</span>
+      </div>
+    </div>
+
+    <!-- US Bot -->
+    <div class="bot-card" data-num="2">
+      <div class="bot-tag both">Spot DRY · F&O DRY</div>
+      <div class="bot-name">US Bot (IBKR)</div>
+      <div class="bot-sub">Earnings Momentum · ATM Calls · 51 symbols</div>
+      <div class="bot-metrics">
+        <div class="bot-metric">
+          <div class="bm-val neu">7.6%</div>
+          <div class="bm-label">Ann. return (backtest)</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val pos">-4.1%</div>
+          <div class="bm-label">Max DD (6yr)</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val neu">1.53</div>
+          <div class="bm-label">Sharpe</div>
+        </div>
+      </div>
+      <div class="bot-stack">
+        <span class="stack-pill">Python</span>
+        <span class="stack-pill">ib_insync</span>
+        <span class="stack-pill">Docker + IBC</span>
+        <span class="stack-pill">OCI ARM 24GB</span>
+      </div>
+    </div>
+
+    <!-- Crypto Spot -->
+    <div class="bot-card" data-num="3">
+      <div class="bot-tag dry">Dry Run</div>
+      <div class="bot-name">Crypto Spot Bot</div>
+      <div class="bot-sub">Llama 8B weekly selection · 20 coins universe</div>
+      <div class="bot-metrics">
+        <div class="bot-metric">
+          <div class="bm-val pos">+$17.38</div>
+          <div class="bm-label">P&L (dry)</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val neu">+1.74%</div>
+          <div class="bm-label">Return</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val neu">BULL</div>
+          <div class="bm-label">Regime</div>
+        </div>
+      </div>
+      <div class="bot-stack">
+        <span class="stack-pill">Python</span>
+        <span class="stack-pill">Llama 8B</span>
+        <span class="stack-pill">OCI ARM 24GB</span>
+        <span class="stack-pill">Binance API</span>
+      </div>
+    </div>
+
+    <!-- Crypto Futures -->
+    <div class="bot-card" data-num="4">
+      <div class="bot-tag dry">Dry Run</div>
+      <div class="bot-name">Crypto Futures Bot</div>
+      <div class="bot-sub">3x leverage · Trend following · 14 trades closed</div>
+      <div class="bot-metrics">
+        <div class="bot-metric">
+          <div class="bm-val pos">+$58.84</div>
+          <div class="bm-label">Realized P&L</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val pos">+5.88%</div>
+          <div class="bm-label">Return</div>
+        </div>
+        <div class="bot-metric">
+          <div class="bm-val neu">BULL</div>
+          <div class="bm-label">Regime</div>
+        </div>
+      </div>
+      <div class="bot-stack">
+        <span class="stack-pill">Python</span>
+        <span class="stack-pill">3x Leverage</span>
+        <span class="stack-pill">OCI ARM 24GB</span>
+        <span class="stack-pill">Binance Futures</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 2: ARCHITECTURE -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2>System Flow</h2>
+  </div>
+
+  <div class="arch-diagram">
+    <!-- Col 1: Signal -->
+    <div class="arch-col">
+      <div class="arch-box highlight">
+        <div class="arch-box-title">SIGNAL ENGINE</div>
+        <div class="arch-box-label">Gap >5% + Vol >1.5x<br>Prev day volume<br>Market-wide filter</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">REGIME FILTER</div>
+        <div class="arch-box-label">SPY > 200 DMA<br>Skip bear markets</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">IBKR HIST DATA</div>
+        <div class="arch-box-label">51 symbols daily<br>3mo OHLCV bars</div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">→</div>
+
+    <!-- Col 2: Risk -->
+    <div class="arch-col">
+      <div class="arch-box highlight">
+        <div class="arch-box-title">RISK MANAGER</div>
+        <div class="arch-box-label">1% risk/trade<br>ATR-based sizing<br>Max 3 positions</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">SPOT ORDER</div>
+        <div class="arch-box-label">Market buy<br>Trailing ATR stop<br>10-day time exit</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">F&O ORDER</div>
+        <div class="arch-box-label">ATM call · 30 DTE<br>2% risk/trade<br>reqSecDefOptParams</div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">→</div>
+
+    <!-- Col 3: Infra -->
+    <div class="arch-col">
+      <div class="arch-box">
+        <div class="arch-box-title">IB GATEWAY</div>
+        <div class="arch-box-label">Docker + IBC<br>Auto-login<br>Port 4004 socat</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">STATE TRACKER</div>
+        <div class="arch-box-label">positions.json<br>fno_positions.json<br>trades.json</div>
+      </div>
+      <div class="arch-box">
+        <div class="arch-box-title">ALERTS</div>
+        <div class="arch-box-label">Telegram + Email<br>Scan results<br>Daily summary</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: INFRASTRUCTURE -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <h2>Infrastructure</h2>
+  </div>
+
+  <div class="infra-grid">
+    <div class="infra-card">
+      <div class="infra-icon">🖥</div>
+      <div class="infra-title">OCI ARM 24GB</div>
+      <div class="infra-detail">
+        crypto-arm · Always free<br>
+        4 OCPU · 24GB RAM<br>
+        96GB storage · 18.9% used<br>
+        Uptime: 19d+ continuous<br>
+        US bot + Crypto bots
+      </div>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">⚡</div>
+      <div class="infra-title">OCI AMD 1GB</div>
+      <div class="infra-detail">
+        algo-bot · Always free<br>
+        1 OCPU · 1GB RAM<br>
+        45GB storage · 23% used<br>
+        Zerodha bot only<br>
+        VM.Standard.E2.1.Micro
+      </div>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">🐳</div>
+      <div class="infra-title">IB Gateway</div>
+      <div class="infra-detail">
+        Docker: gnzsnz/ib-gateway<br>
+        IBC auto-login + auto-restart<br>
+        Xvfb virtual display<br>
+        Port 4004 (socat proxy)<br>
+        Cron restart at 03:50 UTC
+      </div>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">🔧</div>
+      <div class="infra-title">systemd Services</div>
+      <div class="infra-detail">
+        us-bot.service<br>
+        us-dashboard.service<br>
+        RestartSec=30<br>
+        Auto-start on reboot<br>
+        journalctl logging
+      </div>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">📊</div>
+      <div class="infra-title">Dashboards</div>
+      <div class="infra-detail">
+        4 separate dashboards<br>
+        Flask · port 5002 (US)<br>
+        Tabs: Spot, F&O, Trades<br>
+        Stats, Scan History<br>
+        Auto-refresh 30s
+      </div>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">🔔</div>
+      <div class="infra-title">Notifications</div>
+      <div class="infra-detail">
+        Telegram: real-time<br>
+        Email: Gmail SMTP<br>
+        Trade open/close<br>
+        Daily + weekly summary<br>
+        Connection alerts
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: SCHEDULE -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <h2>Daily Schedule</h2>
+  </div>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-time">03:50 UTC · 09:20 AM IST</div>
+      <div class="tl-title">IB Gateway Restart</div>
+      <div class="tl-body">Cron restarts Docker container before IBKR daily reset (03:45 UTC). Second restart at 04:20 UTC as safety net. Bot restarts at 04:30 UTC with fresh connection.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">13:36 UTC · 07:06 PM IST</div>
+      <div class="tl-title">Morning Scan</div>
+      <div class="tl-body">Fetches 3 months OHLCV for all 51 symbols from IBKR. Computes gap%, prev-day volume ratio, ATR, MA. Checks market-wide filter. Fires spot + F&O entries on qualifying signals. Results saved to scan_log.json and sent via Telegram.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">16:00 UTC · 09:30 PM IST</div>
+      <div class="tl-title">Midday Exit Check</div>
+      <div class="tl-body">Checks all open spot and F&O positions against trailing ATR stop and time exit. Sells if triggered.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">19:45 UTC · 01:15 AM IST</div>
+      <div class="tl-title">Pre-close Exit Check</div>
+      <div class="tl-body">Final exit check before US market close. Increments hold day counter for all open positions.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">19:50 UTC · 01:20 AM IST</div>
+      <div class="tl-title">EOD Summary → Telegram + Email</div>
+      <div class="tl-body">Portfolio value, cash balance, all open positions with unrealized P&L. Sent to Telegram and email.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5: WHAT'S NEXT -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <h2>What's Next</h2>
+  </div>
+
+  <div class="next-grid">
+    <div class="next-card">
+      <div class="next-num">01</div>
+      <div class="next-title">Fund IBKR</div>
+      <div class="next-body">Minimum $2,000 deposit. Switch SPOT_MODE and FNO_MODE to live. Start with 0.5% risk per trade.</div>
+      <div class="next-when">→ Anytime</div>
+    </div>
+    <div class="next-card">
+      <div class="next-num">02</div>
+      <div class="next-title">July Earnings Season</div>
+      <div class="next-body">NVDA, META, GOOGL, MSFT report Q2. First real signals fire. Both spot and F&O dry orders validated.</div>
+      <div class="next-when">→ July 2026</div>
+    </div>
+    <div class="next-card">
+      <div class="next-num">03</div>
+      <div class="next-title">Go Crypto Live</div>
+      <div class="next-body">Crypto futures bot at +5.88% after 14 trades in dry run. Spot bot at +1.74%. Both ready for live capital.</div>
+      <div class="next-when">→ After validation</div>
+    </div>
+    <div class="next-card">
+      <div class="next-num">04</div>
+      <div class="next-title">Unified Dashboard</div>
+      <div class="next-body">All 4 bots in one page. Tabs per bot, total P&L across all systems, cross-server API calls.</div>
+      <div class="next-when">→ Weekend project</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>Trading System Architecture · May 2026</span>
+  <span>OCI ARM · IBKR · Zerodha · Binance · Always Free</span>
+</footer>
+
+</body>
+</html>

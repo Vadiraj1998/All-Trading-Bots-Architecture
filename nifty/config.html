@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zerodha Multi-Strategy Options Bot — Architecture & Workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #0f172a;
+    --border: rgba(255,255,255,.08);
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --blue: #60a5fa;
+    --blue-bg: rgba(59,130,246,.12);
+    --purple: #a78bfa;
+    --purple-bg: rgba(139,92,246,.12);
+    --orange: #fb923c;
+    --orange-bg: rgba(249,115,22,.14);
+    --teal: #2dd4bf;
+    --teal-bg: rgba(20,184,166,.12);
+    --green: #34d399;
+    --green-bg: rgba(16,185,129,.12);
+    --red: #f87171;
+    --red-bg: rgba(239,68,68,.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(245,158,11,.12);
+    --gray: #cbd5e1;
+    --gray-bg: rgba(148,163,184,.12);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background:
+      linear-gradient(rgba(96,165,250,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96,165,250,.03) 1px, transparent 1px),
+      var(--bg);
+    background-size: 40px 40px, 40px 40px, auto;
+    color: var(--text);
+  }
+  .page { max-width: 1220px; margin: 0 auto; padding: 48px 24px 80px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(96,165,250,.28);
+    background: rgba(59,130,246,.1);
+    color: var(--blue);
+    border-radius: 999px; padding: 8px 12px;
+    font: 500 11px var(--mono); letter-spacing: .04em;
+  }
+  .eyebrow::before { content: '◉'; font-size: 9px; }
+  h1 {
+    margin: 16px 0 12px;
+    font: 700 clamp(30px, 5vw, 54px)/1.05 var(--mono);
+    letter-spacing: -.03em;
+  }
+  h1 span { color: var(--blue); }
+  h2 { margin: 0; font: 700 20px var(--mono); }
+  .sub { max-width: 720px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+  .badges { display:flex; flex-wrap:wrap; gap:10px; margin: 18px 0 0; }
+  .badge {
+    font: 500 11px var(--mono); padding: 7px 11px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,.03);
+  }
+  .section { margin-top: 56px; }
+  .section-title { display:flex; align-items:center; gap:14px; margin-bottom: 18px; }
+  .num {
+    width: 30px; height: 30px; border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(59,130,246,.12); color: var(--blue); border: 1px solid rgba(59,130,246,.2);
+    font: 700 11px var(--mono);
+  }
+  .section-title p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.24);
+  }
+  .toolbar {
+    height: 44px; display:flex; align-items:center; justify-content:space-between;
+    padding: 0 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+  }
+  .dots { display:flex; gap:7px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.red { background:#ff5f57; } .dot.yellow { background:#febc2e; } .dot.green { background:#28c840; }
+  .toolbar .label, .toolbar .hint { font: 500 11px var(--mono); color: var(--muted); }
+  .diagram-wrap { padding: 22px; overflow-x: auto; }
+  svg { width: 100%; height: auto; font-family: var(--sans); }
+  .row-label { font: 700 10px var(--mono); letter-spacing: .06em; opacity: .9; }
+  .divider { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+  .node rect { rx: 12; ry: 12; stroke-width: 1; }
+  .node-title { font: 700 13px var(--sans); }
+  .node-sub { font: 400 11px var(--sans); fill: var(--muted); }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; padding: 18px 22px 20px; border-top:1px solid var(--border); background: var(--panel-2); }
+  .legend-item { display:flex; align-items:center; gap:8px; color: var(--muted); font: 500 11px var(--mono); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+  #tip {
+    position: fixed; z-index: 1000; pointer-events:none; opacity:0;
+    max-width: 260px; padding: 10px 12px; border-radius: 10px;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.12);
+    color: var(--text); font: 500 12px/1.5 var(--mono); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    transition: opacity .12s ease;
+  }
+  #tip.show { opacity: 1; }
+  
+  /* Code blocks */
+  pre {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 16px; border-radius: 12px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.8;
+    color: var(--text); margin: 0;
+  }
+  
+  footer { margin-top: 48px; padding-top: 22px; border-top:1px solid var(--border); color:var(--muted); font: 500 11px var(--mono); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  
+  @media (max-width: 720px) {
+    .page { padding: 32px 14px 60px; }
+    .diagram-wrap { padding: 12px; }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #1c2538;padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;">
+  <a href="../index.html" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#3b9eff;text-decoration:none;white-space:nowrap;">TRADING FLEET</a>
+  <div style="display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;">
+    <a href="../index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">← Home</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇮🇳 Nifty</span>
+    <a href="index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-overview">Overview</a>
+    <a href="architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-arch">Architecture</a>
+    <a href="workflow.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-flow">Workflow</a>
+    <a href="config.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-cfg">Config</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇺🇸 US</span>
+    <a href="../us-bot/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
+    <a href="../crypto/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+  </div>
+</nav>
+<div id="tip"></div>
+
+<div class="page" style="padding-top:32px">
+  <div class="eyebrow">ZERODHA MULTI-STRATEGY OPTIONS BOT — ORB · BREAKOUT · MEAN REVERSION</div>
+  <h1>Architecture & <span>Workflow</span></h1>
+  <p class="sub">A clean visual reference for the bot's system architecture, token lifecycle, daily workflow, multi-strategy dispatch, exit conditions, and cron schedule.</p>
+  <div class="badges">
+    <div class="badge">Ubuntu Server + cron</div>
+    <div class="badge">Kite Connect API</div>
+    <div class="badge">Python 3.12</div>
+    <div class="badge">☁️ Cloudflare Worker (auto token)</div>
+    <div class="badge">📐 ORB — Instance 1 DRY</div>
+    <div class="badge">📈 Breakout — Instance 2 LIVE</div>
+    <div class="badge">🔄 Mean Reversion — Instance 3 DRY</div>
+    <div class="badge">Reversal Exit</div>
+    <div class="badge">LTP Fallback + Retry</div>
+    <div class="badge">Telegram Control Layer</div>
+    <div class="badge">Circuit Breaker</div>
+  </div>
+  <!-- ── SECTION 07: CAPITAL REQUIREMENTS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">07</div>
+      <div>
+        <h2>Capital Requirements</h2>
+        <p>What ₹50K can and cannot do — and what breaks at each level.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Position sizing formula</span>
+risk_amount    = CAPITAL × RISK_PCT        <span style="color:#94a3b8"># ₹50,000 × 0.05 = ₹2,500</span>
+max_sl_per_lot = entry_price × SL_PCT      <span style="color:#94a3b8"># ₹150 × 0.25 = ₹37.50</span>
+lots           = floor(risk / sl_per_lot)  <span style="color:#94a3b8"># floor(2500 / 37.50) = 66 → capped to 65</span>
+max_entry_price = risk / (SL_PCT × lots)   <span style="color:#94a3b8"># ₹2500 / (0.25 × 65) = ₹153.84 allowed</span>
+
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#94a3b8"># CAPITAL vs UNDERLYING VIABILITY</span>
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">₹50,000</span>   NIFTY ✅   BankNifty ❌   FINNIFTY ❌
+           <span style="color:#94a3b8">Only ATM options at ~₹150 × 65 lots ≈ ₹9,750 per trade</span>
+           <span style="color:#94a3b8">High-VIX days push options above allowed price → NO TRADE</span>
+           <span style="color:#94a3b8">FINNIFTY: needs ~₹6L  BankNifty: needs ~₹2L+</span>
+
+<span style="color:#34d399">₹1,00,000</span>  NIFTY ✅   BankNifty ⚠️   FINNIFTY ❌
+           <span style="color:#94a3b8">More strike flexibility on NIFTY, BankNifty marginal</span>
+
+<span style="color:#34d399">₹2,00,000</span>  NIFTY ✅   BankNifty ✅   FINNIFTY ❌
+           <span style="color:#94a3b8">Full multi-underlying on 2 of 3. Recommended minimum for this system.</span>
+
+<span style="color:#34d399">₹3,00,000+</span> NIFTY ✅   BankNifty ✅   FINNIFTY ✅
+           <span style="color:#94a3b8">System operates as designed across all underlyings</span>
+
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#94a3b8"># CURRENT CONFIG (honest)</span>
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+INSTANCE_1_UNDERLYINGS=NIFTY  <span style="color:#f87171"># ORB: NIFTY only — FINNIFTY unreachable at ₹50K</span>
+INSTANCE_2_UNDERLYINGS=NIFTY  <span style="color:#fbbf24"># Breakout: NIFTY only (LIVE)</span>
+INSTANCE_3_UNDERLYINGS=NIFTY  <span style="color:#94a3b8"># MR: NIFTY only (DRY)</span>
+
+<span style="color:#94a3b8"># System was designed as multi-asset. It runs as single-asset at ₹50K.</span>
+<span style="color:#94a3b8"># Upgrade capital before enabling BankNifty or FINNIFTY.</span></pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 08: KNOWN LIMITATIONS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">08</div>
+      <div>
+        <h2>Known Limitations</h2>
+        <p>Real constraints — not edge cases, actual daily operating realities.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#f87171">1. DAILY TOKEN RENEWAL — MANUAL, NO AUTOMATION</span>
+   Zerodha access tokens expire at 7:30 AM daily.
+   Renewal requires a human to log into kite.zerodha.com and paste the token.
+   Miss the window → that day is lost. No recovery.
+
+<span style="color:#f87171">2. NO BACKTEST ENGINE</span>
+   All validation is forward DRY RUN only.
+   Hit rate, expectancy, max drawdown — unknown without months of live data.
+   You cannot know if the strategy has edge without running it.
+
+<span style="color:#fbbf24">3. SLIPPAGE NOT MODELED IN DRY RUN</span>
+   DRY RUN uses signal price as fill price with 0 slippage.
+   Live options spreads: ₹2–5+ on ATM strikes. On 65 lots that is ₹130–325 per entry.
+   At ₹150 entry price, a ₹3 spread = 2% cost on entry alone.
+   Real P&amp;L will be worse than DRY RUN shows.
+
+<span style="color:#fbbf24">4. REGIME FILTER IS A HEURISTIC</span>
+   0.8% prev-day range filter removes low-volatility days.
+   But some low-range days gap on news. Some high-range days are pure chop.
+   Filter improves average — it is not a precise signal.
+
+<span style="color:#fbbf24">5. ORB FORCE EXIT AT 10:50 CAPS WINNERS</span>
+   ORB positions moving in the right direction are hard-exited at 10:50.
+   Design choice (capital handoff to Breakout), but it limits ORB upside.
+
+<span style="color:#94a3b8">6. MR ENTRY HAS NO CANDLE CONFIRMATION</span>
+   MR enters as soon as breakout_seen + spot reverted.
+   Does not wait for a close back through the level on 5-min candle.
+   Some MR entries are early — spot reverting again after entry is possible.
+
+<span style="color:#94a3b8">7. NO VIX OR OPTIONS GREEKS AWARENESS</span>
+   India VIX below 12 → options cheap, theta burn fast, moves small.
+   India VIX above 20 → options expensive, slippage severe.
+   Neither handled. A VIX-based skip filter is phase 2.
+
+<span style="color:#94a3b8">8. NSE HOLIDAYS NOT AUTO-DETECTED</span>
+   Cron runs Mon–Fri. On exchange holidays the bot starts and polls with errors.
+   is_market_open() partially handles this via API response, but not reliably.
+
+<span style="color:#94a3b8">9. SINGLE SERVER, NO FAILOVER</span>
+   OCI free-tier instance. If it reboots, all instances stop.
+   No automatic restart of trading instances on reboot (only telegram_bot restarts).
+   Manual intervention required after any server restart during market hours.</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 09: FAILURE MODES ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">09</div>
+      <div>
+        <h2>Failure Modes</h2>
+        <p>What breaks, how likely, and what protects against it.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># ─── FAILURES THAT CAUSE MONEY LOSS ────────────────────────────────</span>
+
+<span style="color:#f87171">SCENARIO                        PROBABILITY   MITIGATION</span>
+<span style="color:#94a3b8">────────────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">API timeout during SL exit</span>      Medium        force_exit_until_closed() retry loop
+<span style="color:#fbbf24">Duplicate entry (race condition)</span> Low (fixed)   entry lock + entry_in_progress flag
+<span style="color:#fbbf24">State lost on restart</span>           Low (fixed)   atomic writes + startup reconciliation
+<span style="color:#fbbf24">Wrong OHLC levels</span>               Low           Kite API cache, dashboard PDH/PDL visible
+<span style="color:#94a3b8">Fake breakout (spike &amp; reverse)</span> Medium        is_fake_breakout() pre-entry check
+<span style="color:#94a3b8">Low-range filter miss</span>           Medium        0.8% threshold, tunable in .env
+<span style="color:#94a3b8">MR early entry (no confirmation)</span> Medium       breakout_seen 30-min window helps
+
+<span style="color:#94a3b8"># ─── FAILURES THAT STOP THE SYSTEM ─────────────────────────────────</span>
+
+<span style="color:#f87171">SCENARIO                        PROBABILITY   MITIGATION</span>
+<span style="color:#94a3b8">────────────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">Process crash (unhandled exc)</span>   Low           broad try/except, Telegram alert, /revive
+<span style="color:#fbbf24">Token expired mid-session</span>       Very Low      tokens valid until midnight, 9:15 check
+<span style="color:#fbbf24">CF Worker fails / token not captured</span> Very Low  manual /token fallback via Telegram
+<span style="color:#fbbf24">Server reboot</span>                   Very Low      @reboot for telegram_bot, manual for trading
+<span style="color:#94a3b8">Kite rate limit</span>                 Medium        LTP cache (5s TTL), exponential backoff
+<span style="color:#94a3b8">Screen session detached</span>        Low           screen -r bot_instance_N to reattach
+
+<span style="color:#94a3b8"># ─── EMERGENCY ACTIONS ───────────────────────────────────────────────</span>
+
+<span style="color:#f87171">/panic</span>           → kills all instances, force exits all positions
+<span style="color:#f87171">/squareoff N</span>     → closes position for instance N only
+<span style="color:#94a3b8">Manual fallback</span>  → log in to kite.zerodha.com and close manually
+<span style="color:#94a3b8">Kill safety net</span>  → cron at 20:00 pkills all remaining processes</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 10: SUCCESS PROBABILITY ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">10</div>
+      <div>
+        <h2>Success Probability — Honest Assessment</h2>
+        <p>Real math, not marketing. Read before going fully live.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># ─── BREAKEVEN MATH ─────────────────────────────────────────────────</span>
+
+Expected Value = (hit_rate × avg_win) − ((1 − hit_rate) × avg_loss)
+
+<span style="color:#94a3b8">With current config (50% target, 25% SL, 65 lots, ~₹150 entry):</span>
+avg_win     ≈ <span style="color:#34d399">₹3,750</span>   (50% gain × ₹150 entry × 65 lots / 2 approx)
+avg_loss    ≈ <span style="color:#f87171">₹1,875</span>   (25% SL × ₹150 × 65 lots / 2 approx)
+
+Breakeven hit rate = 1875 / (3750 + 1875) = <span style="color:#fbbf24">~33%</span>
+
+<span style="color:#94a3b8">→ Win more than 1 in 3 trades → theoretically profitable.</span>
+<span style="color:#94a3b8">→ Actual hit rate unknown. Need 30+ live trades to measure.</span>
+
+<span style="color:#94a3b8"># ─── MARKET REGIME REALITY ──────────────────────────────────────────</span>
+
+Indian markets (rough historical distribution):
+  Strong trend days  ~30–35%   <span style="color:#34d399">Breakout ✅  ORB ✅  MR ❌</span>
+  Range / chop days  ~35–40%   <span style="color:#f87171">All strategies suffer</span>
+  Reversal days      ~25–30%   <span style="color:#34d399">MR ✅</span>  <span style="color:#f87171">Breakout ❌  ORB ❌</span>
+
+After regime filter (0.8% range threshold):
+  ~3–5 low-range days filtered per month
+  You still trade ~60–70% of days — cannot avoid reversals
+
+<span style="color:#94a3b8"># ─── REALISTIC P&amp;L AT ₹50K CAPITAL ─────────────────────────────────</span>
+
+Trading days / month   ~18–20
+After filter           ~13–17 days traded
+Expected hit rate      30–40%
+
+<span style="color:#34d399">Optimistic month</span>    Win days: ~6 × ₹3,000 = +₹18,000
+                    Loss days: ~10 × ₹1,800 = −₹18,000
+                    Net: <span style="color:#34d399">₹0 to +₹5,000</span>  (0–10% gross)
+
+<span style="color:#fbbf24">Realistic month</span>     Net: <span style="color:#fbbf24">−₹1,000 to +₹3,000</span>  (−2% to +6% gross)
+                    After brokerage + STT + GST: tighter
+
+<span style="color:#f87171">Pessimistic month</span>   Extended chop / reversal regime
+                    Net: <span style="color:#f87171">−₹5,000 to −₹8,000</span>  (−10% to −16%)
+
+<span style="color:#94a3b8"># ─── WHAT CHANGES THE PICTURE ───────────────────────────────────────</span>
+
+<span style="color:#34d399">+Capital (₹2L+)</span>     Strike flexibility, NIFTY + BankNifty, better R:R
+<span style="color:#34d399">+30 live trade days</span> Actual hit rate and win/loss measurable
+<span style="color:#34d399">+VIX filter</span>         Skip low-VIX days → fewer theta-bleed losses
+<span style="color:#34d399">+MR candle confirm</span>  Fewer early MR entries against trend
+
+<span style="color:#94a3b8"># ─── WHAT THIS SYSTEM IS GOOD FOR RIGHT NOW ─────────────────────────</span>
+
+<span style="color:#60a5fa">✅</span>  Learning how live algo options trading actually works
+<span style="color:#60a5fa">✅</span>  Building intuition about regime dependency
+<span style="color:#60a5fa">✅</span>  Identifying real failure modes invisible in backtests
+<span style="color:#60a5fa">✅</span>  Production infrastructure for when a real edge is found
+<span style="color:#f87171">❌</span>  Consistent income at ₹50K capital — not yet validated
+<span style="color:#f87171">❌</span>  Set-and-forget — requires daily oversight and token renewal
+
+<span style="color:#94a3b8"># ─── WHAT HAS BEEN VALIDATED ─────────────────────────────────────────</span>
+
+<span style="color:#34d399">✅</span>  Full position lifecycle (entry → monitoring → exit) in DRY RUN
+<span style="color:#34d399">✅</span>  State persistence survives restarts without position loss
+<span style="color:#34d399">✅</span>  Startup reconciliation resolves state/broker mismatches
+<span style="color:#34d399">✅</span>  Entry deduplication (locks + flags prevent duplicate orders)
+<span style="color:#34d399">✅</span>  Circuit breaker halts trading at daily loss limit
+<span style="color:#34d399">✅</span>  Regime filter skips low-range days correctly
+<span style="color:#34d399">✅</span>  Momentum exit fires in 10–15 min window (Breakout only)
+<span style="color:#34d399">✅</span>  MR breakout_seen prevents setups that never had a breakout
+<span style="color:#f87171">❌</span>  Hit rate / expectancy (need 30+ live trading days)
+<span style="color:#f87171">❌</span>  Slippage impact on real P&amp;L (DRY uses 0 slippage)
+<span style="color:#f87171">❌</span>  ORB/MR profitability (DRY only, insufficient data)
+<span style="color:#f87171">❌</span>  Performance on genuine strong trend days</pre>
+    </div>
+  </div>
+
+  <footer>
+    Zerodha NIFTY / BankNifty Options Bot &mdash; Architecture reference ·
+    <a href="https://kite.trade/docs/connect/v3/" target="_blank" rel="noreferrer">Kite Connect API docs</a>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-top: 12px;">
+      <div>Built &amp; maintained by <strong>Vadiraja Tantri M S</strong></div>
+      <div style="opacity:.8;">NetApp Storage Engineer · Automation · Trading Systems</div>
+      <div style="opacity:.7;">Bengaluru · India</div>
+      <div style="margin-top:6px;">
+        <a href="https://github.com/vadiraj1998" target="_blank">GitHub</a>
+        &middot;
+        <a href="https://www.linkedin.com/in/vadiraja-tantri-m-s" target="_blank">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const tipEl = document.getElementById('tip');
+  document.querySelectorAll('.node').forEach(node => {
+    node.addEventListener('mouseenter', e => {
+      const text = node.getAttribute('data-tip');
+      if (!text) return;
+      tipEl.textContent = text;
+      tipEl.classList.add('show');
+    });
+    node.addEventListener('mousemove', e => {
+      const pad = 14;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      const w = tipEl.offsetWidth;
+      const h = tipEl.offsetHeight;
+      if (x + w > window.innerWidth - 12) x = e.clientX - w - pad;
+      if (y + h > window.innerHeight - 12) y = e.clientY - h - pad;
+      tipEl.style.left = x + 'px';
+      tipEl.style.top = y + 'px';
+    });
+    node.addEventListener('mouseleave', () => tipEl.classList.remove('show'));
+  });
+</script>
+</body>

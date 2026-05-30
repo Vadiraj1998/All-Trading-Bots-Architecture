@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zerodha Multi-Strategy Options Bot — Architecture & Workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #0f172a;
+    --border: rgba(255,255,255,.08);
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --blue: #60a5fa;
+    --blue-bg: rgba(59,130,246,.12);
+    --purple: #a78bfa;
+    --purple-bg: rgba(139,92,246,.12);
+    --orange: #fb923c;
+    --orange-bg: rgba(249,115,22,.14);
+    --teal: #2dd4bf;
+    --teal-bg: rgba(20,184,166,.12);
+    --green: #34d399;
+    --green-bg: rgba(16,185,129,.12);
+    --red: #f87171;
+    --red-bg: rgba(239,68,68,.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(245,158,11,.12);
+    --gray: #cbd5e1;
+    --gray-bg: rgba(148,163,184,.12);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background:
+      linear-gradient(rgba(96,165,250,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96,165,250,.03) 1px, transparent 1px),
+      var(--bg);
+    background-size: 40px 40px, 40px 40px, auto;
+    color: var(--text);
+  }
+  .page { max-width: 1220px; margin: 0 auto; padding: 48px 24px 80px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(96,165,250,.28);
+    background: rgba(59,130,246,.1);
+    color: var(--blue);
+    border-radius: 999px; padding: 8px 12px;
+    font: 500 11px var(--mono); letter-spacing: .04em;
+  }
+  .eyebrow::before { content: '◉'; font-size: 9px; }
+  h1 {
+    margin: 16px 0 12px;
+    font: 700 clamp(30px, 5vw, 54px)/1.05 var(--mono);
+    letter-spacing: -.03em;
+  }
+  h1 span { color: var(--blue); }
+  h2 { margin: 0; font: 700 20px var(--mono); }
+  .sub { max-width: 720px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+  .badges { display:flex; flex-wrap:wrap; gap:10px; margin: 18px 0 0; }
+  .badge {
+    font: 500 11px var(--mono); padding: 7px 11px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,.03);
+  }
+  .section { margin-top: 56px; }
+  .section-title { display:flex; align-items:center; gap:14px; margin-bottom: 18px; }
+  .num {
+    width: 30px; height: 30px; border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(59,130,246,.12); color: var(--blue); border: 1px solid rgba(59,130,246,.2);
+    font: 700 11px var(--mono);
+  }
+  .section-title p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.24);
+  }
+  .toolbar {
+    height: 44px; display:flex; align-items:center; justify-content:space-between;
+    padding: 0 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+  }
+  .dots { display:flex; gap:7px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.red { background:#ff5f57; } .dot.yellow { background:#febc2e; } .dot.green { background:#28c840; }
+  .toolbar .label, .toolbar .hint { font: 500 11px var(--mono); color: var(--muted); }
+  .diagram-wrap { padding: 22px; overflow-x: auto; }
+  svg { width: 100%; height: auto; font-family: var(--sans); }
+  .row-label { font: 700 10px var(--mono); letter-spacing: .06em; opacity: .9; }
+  .divider { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+  .node rect { rx: 12; ry: 12; stroke-width: 1; }
+  .node-title { font: 700 13px var(--sans); }
+  .node-sub { font: 400 11px var(--sans); fill: var(--muted); }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; padding: 18px 22px 20px; border-top:1px solid var(--border); background: var(--panel-2); }
+  .legend-item { display:flex; align-items:center; gap:8px; color: var(--muted); font: 500 11px var(--mono); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+  #tip {
+    position: fixed; z-index: 1000; pointer-events:none; opacity:0;
+    max-width: 260px; padding: 10px 12px; border-radius: 10px;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.12);
+    color: var(--text); font: 500 12px/1.5 var(--mono); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    transition: opacity .12s ease;
+  }
+  #tip.show { opacity: 1; }
+  
+  /* Code blocks */
+  pre {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 16px; border-radius: 12px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.8;
+    color: var(--text); margin: 0;
+  }
+  
+  footer { margin-top: 48px; padding-top: 22px; border-top:1px solid var(--border); color:var(--muted); font: 500 11px var(--mono); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  
+  @media (max-width: 720px) {
+    .page { padding: 32px 14px 60px; }
+    .diagram-wrap { padding: 12px; }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #1c2538;padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;">
+  <a href="../index.html" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#3b9eff;text-decoration:none;white-space:nowrap;">TRADING FLEET</a>
+  <div style="display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;">
+    <a href="../index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">← Home</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇮🇳 Nifty</span>
+    <a href="index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-overview">Overview</a>
+    <a href="architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-arch">Architecture</a>
+    <a href="workflow.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-flow">Workflow</a>
+    <a href="config.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-cfg">Config</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇺🇸 US</span>
+    <a href="../us-bot/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
+    <a href="../crypto/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+  </div>
+</nav>
+<div id="tip"></div>
+
+<div class="page" style="padding-top:32px">
+  <div class="eyebrow">ZERODHA MULTI-STRATEGY OPTIONS BOT — ORB · BREAKOUT · MEAN REVERSION</div>
+  <h1>Architecture & <span>Workflow</span></h1>
+  <p class="sub">A clean visual reference for the bot's system architecture, token lifecycle, daily workflow, multi-strategy dispatch, exit conditions, and cron schedule.</p>
+  <div class="badges">
+    <div class="badge">Ubuntu Server + cron</div>
+    <div class="badge">Kite Connect API</div>
+    <div class="badge">Python 3.12</div>
+    <div class="badge">📐 ORB — Instance 1 DRY</div>
+    <div class="badge">📈 Breakout — Instance 2 LIVE</div>
+    <div class="badge">🔄 Mean Reversion — Instance 3 DRY</div>
+    <div class="badge">Reversal Exit</div>
+    <div class="badge">LTP Fallback + Retry</div>
+    <div class="badge">Telegram Control Layer</div>
+    <div class="badge">Circuit Breaker</div>
+  </div>
+
+  <!-- ── SECTION 01: SYSTEM ARCHITECTURE ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">01</div>
+      <div>
+        <h2>System Architecture</h2>
+        <p>Five layers: Token Management, Startup, Strategy Core, Exit Conditions, Outputs.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <div class="dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+        <div class="label">architecture.svg</div>
+        <div class="hint">hover for details</div>
+      </div>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1060 800" xmlns="http://www.w3.org/2000/svg" aria-label="System Architecture">
+          <defs>
+            <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/>
+            </marker>
+            <marker id="arrowPurple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#a78bfa"/>
+            </marker>
+            <marker id="arrowOrange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#fb923c"/>
+            </marker>
+            <marker id="arrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/>
+            </marker>
+            <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/>
+            </marker>
+            <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/>
+            </marker>
+          </defs>
+
+          <!-- Row labels and dividers -->
+          <text x="18" y="28" class="row-label" fill="#60a5fa">TOKEN MANAGEMENT</text>
+          <line x1="18" y1="40" x2="1040" y2="40" class="divider"/>
+
+          <text x="18" y="192" class="row-label" fill="#a78bfa">STARTUP</text>
+          <line x1="18" y1="204" x2="1040" y2="204" class="divider"/>
+
+          <text x="18" y="348" class="row-label" fill="#fb923c">STRATEGY CORE</text>
+          <line x1="18" y1="360" x2="1040" y2="360" class="divider"/>
+
+          <text x="18" y="576" class="row-label" fill="#2dd4bf">EXIT PATHS</text>
+          <line x1="18" y1="588" x2="1040" y2="588" class="divider"/>
+
+          <text x="18" y="732" class="row-label" fill="#34d399">OUTPUTS (EOD)</text>
+          <line x1="18" y1="744" x2="1040" y2="744" class="divider"/>
+
+          <!-- TOKEN MANAGEMENT ROW -->
+          <g class="node" data-tip="Login on kite.zerodha.com — redirect URL is intercepted automatically by the Cloudflare Worker. No manual copy needed.">
+            <rect x="30" y="64" width="150" height="62" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.28)"/>
+            <text x="105" y="90" text-anchor="middle" class="node-title" fill="#e5e7eb">Zerodha login</text>
+            <text x="105" y="108" text-anchor="middle" class="node-sub">kite.zerodha.com</text>
+          </g>
+          <g class="node" data-tip="Cloudflare Worker intercepts the Kite redirect URL, extracts request_token automatically, and POSTs it to token_receiver.py on the server. Eliminates manual copy-paste.">
+            <rect x="200" y="64" width="198" height="62" fill="rgba(249,115,22,.14)" stroke="rgba(251,146,60,.35)"/>
+            <text x="299" y="90" text-anchor="middle" class="node-title" fill="#fb923c">Cloudflare Worker</text>
+            <text x="299" y="108" text-anchor="middle" class="node-sub">auto token capture</text>
+          </g>
+          <g class="node" data-tip="token_receiver.py: Flask endpoint on the server that receives request_token from the Cloudflare Worker, exchanges it for an access_token via Kite API, and writes it to .env automatically.">
+            <rect x="420" y="64" width="196" height="62" fill="rgba(20,184,166,.12)" stroke="rgba(45,212,191,.28)"/>
+            <text x="518" y="90" text-anchor="middle" class="node-title" fill="#2dd4bf">Token receiver</text>
+            <text x="518" y="108" text-anchor="middle" class="node-sub">token_receiver.py (Flask)</text>
+          </g>
+          <g class="node" data-tip="Stores access token, API keys, Telegram creds, email config, strategy settings. Written automatically by token_receiver.py — no manual edit needed.">
+            <rect x="638" y="64" width="104" height="62" fill="rgba(245,158,11,.12)" stroke="rgba(251,191,36,.32)"/>
+            <text x="690" y="90" text-anchor="middle" class="node-title" fill="#fbbf24">.env</text>
+            <text x="690" y="108" text-anchor="middle" class="node-sub">runtime config</text>
+          </g>
+          <g class="node" data-tip="Receives Telegram alert once token is successfully updated. Also sends 7:30 AM reminder to trigger the login flow.">
+            <rect x="764" y="64" width="176" height="62" fill="rgba(59,130,246,.08)" stroke="rgba(96,165,250,.28)" stroke-dasharray="5 4"/>
+            <text x="852" y="90" text-anchor="middle" class="node-title" fill="#60a5fa">Telegram</text>
+            <text x="852" y="108" text-anchor="middle" class="node-sub">token alert + reminder</text>
+          </g>
+
+          <!-- TOKEN ROW ARROWS -->
+          <line x1="180" y1="95" x2="200" y2="95" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <line x1="398" y1="95" x2="420" y2="95" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowOrange)"/>
+          <line x1="616" y1="95" x2="638" y2="95" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowAmber)"/>
+          <line x1="742" y1="95" x2="764" y2="95" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowBlue)"/>
+          <!-- Telegram reminder arc back to trigger login -->
+          <path d="M299 64 V 32 H 852 V 62" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowTeal)"/>
+
+          <!-- STARTUP ROW -->
+          <g class="node" data-tip="validate_token_at_915.py confirms token via kite.profile() and aborts if invalid.">
+            <rect x="30" y="216" width="196" height="62" fill="rgba(139,92,246,.12)" stroke="rgba(167,139,250,.28)"/>
+            <text x="128" y="242" text-anchor="middle" class="node-title" fill="#a78bfa">Token validator</text>
+            <text x="128" y="260" text-anchor="middle" class="node-sub">validate_token_at_915.py</text>
+          </g>
+          <g class="node" data-tip="auth.py returns KiteConnect with access token set.">
+            <rect x="274" y="216" width="130" height="62" fill="rgba(139,92,246,.12)" stroke="rgba(167,139,250,.28)"/>
+            <text x="339" y="242" text-anchor="middle" class="node-title" fill="#a78bfa">Auth</text>
+            <text x="339" y="260" text-anchor="middle" class="node-sub">auth.py</text>
+          </g>
+          <g class="node" data-tip="main.py validates config, waits for instance window, calls run_strategy().">
+            <rect x="454" y="216" width="136" height="62" fill="rgba(139,92,246,.12)" stroke="rgba(167,139,250,.28)"/>
+            <text x="522" y="242" text-anchor="middle" class="node-title" fill="#a78bfa">Main</text>
+            <text x="522" y="260" text-anchor="middle" class="node-sub">main.py</text>
+          </g>
+          <g class="node" data-tip="Kite Connect API for quotes, instruments, order placement, reconciliation.">
+            <rect x="676" y="216" width="150" height="62" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.28)" stroke-dasharray="5 4"/>
+            <text x="751" y="242" text-anchor="middle" class="node-title" fill="#e5e7eb">Kite API</text>
+            <text x="751" y="260" text-anchor="middle" class="node-sub">Zerodha</text>
+          </g>
+
+          <!-- STARTUP ARROWS -->
+          <path d="M718 126 V 176 H 128 V 214" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowAmber)"/>
+          <line x1="226" y1="247" x2="274" y2="247" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+          <line x1="404" y1="247" x2="454" y2="247" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+          <line x1="590" y1="247" x2="676" y2="247" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <path d="M522 278 V 322" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+          <!-- STRATEGY CORE ROW -->
+          <g class="node" data-tip="Fetches and caches instruments, expiry, strike selection, spot data.">
+            <rect x="30" y="372" width="164" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="112" y="398" text-anchor="middle" class="node-title" fill="#60a5fa">Instruments</text>
+            <text x="112" y="416" text-anchor="middle" class="node-sub">instruments.py</text>
+          </g>
+          <g class="node" data-tip="strategy.py reloads state, checks breakouts, manages positions, exits every 30s. This is the execution core — everything else supports it.">
+            <rect x="254" y="354" width="246" height="100" fill="rgba(249,115,22,.26)" stroke="rgba(251,146,60,.75)" stroke-width="2"/>
+            <text x="377" y="388" text-anchor="middle" class="node-title" fill="#fb923c" style="font-size:16px;font-weight:700">Strategy loop</text>
+            <text x="377" y="410" text-anchor="middle" class="node-sub" style="font-size:12px">ORB · Breakout · MR</text>
+            <text x="377" y="430" text-anchor="middle" class="node-sub">poll every 1–5 seconds</text>
+            <text x="377" y="446" text-anchor="middle" style="font:700 10px var(--mono);fill:#fb923c;letter-spacing:.05em">◉ EXECUTION CORE</text>
+          </g>
+          <g class="node" data-tip="Order placement, fill retrieval, reconciliation, position management.">
+            <rect x="564" y="372" width="138" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="633" y="398" text-anchor="middle" class="node-title" fill="#60a5fa">Broker</text>
+            <text x="633" y="416" text-anchor="middle" class="node-sub">broker.py</text>
+          </g>
+          <g class="node" data-tip="Quantity calculation, leverage cap, expiry skip, circuit breaker.">
+            <rect x="776" y="372" width="126" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="839" y="398" text-anchor="middle" class="node-title" fill="#60a5fa">Risk</text>
+            <text x="839" y="416" text-anchor="middle" class="node-sub">risk.py</text>
+          </g>
+
+          <!-- STRATEGY SUPPORT ROW -->
+          <g class="node" data-tip="Config, DailyState JSON, instance-specific file paths.">
+            <rect x="30" y="460" width="164" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="112" y="486" text-anchor="middle" class="node-title" fill="#60a5fa">State / Config</text>
+            <text x="112" y="504" text-anchor="middle" class="node-sub">utils.py</text>
+          </g>
+          <g class="node" data-tip="Logs every closed trade to CSV with prices, P&L, reason, order IDs.">
+            <rect x="260" y="460" width="166" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="343" y="492" text-anchor="middle" class="node-title" fill="#60a5fa">Trade logger</text>
+            <text x="343" y="510" text-anchor="middle" class="node-sub">trade_logger.py</text>
+          </g>
+          <g class="node" data-tip="Telegram alerts for start, buy, sell, stop, failures.">
+            <rect x="498" y="460" width="184" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)"/>
+            <text x="590" y="486" text-anchor="middle" class="node-title" fill="#60a5fa">Telegram handler</text>
+            <text x="590" y="504" text-anchor="middle" class="node-sub">telegram_handler.py</text>
+          </g>
+
+          <!-- CORE ROW ARROWS -->
+          <!-- Instruments → Strategy loop -->
+          <line x1="194" y1="404" x2="264" y2="404" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Strategy loop → Broker -->
+          <line x1="490" y1="404" x2="564" y2="404" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Broker → Risk -->
+          <line x1="702" y1="404" x2="776" y2="404" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Strategy loop → State/Config (left branch) -->
+          <path d="M320 446 V 453 H 112 V 460" fill="none" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Strategy loop → Trade logger (center branch) -->
+          <path d="M377 446 V 460" fill="none" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Strategy loop → Telegram handler (right branch) -->
+          <path d="M434 446 V 453 H 590 V 460" fill="none" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+          <!-- Risk → Kite/back up -->
+          <path d="M839 372 V 330 H 751 V 278" fill="none" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+          <!-- EXIT PATHS ROW -->
+          <g class="node" data-tip="TARGET_PCT=0.50 — profit >= 50%">
+            <rect x="40" y="600" width="190" height="56" fill="rgba(16,185,129,.12)" stroke="rgba(52,211,153,.28)" rx="12"/>
+            <text x="135" y="632" text-anchor="middle" class="node-title" fill="#34d399">Target hit (+50%)</text>
+          </g>
+          <g class="node" data-tip="STOP_LOSS_PCT=0.25 — loss >= 25%">
+            <rect x="260" y="600" width="190" height="56" fill="rgba(239,68,68,.12)" stroke="rgba(248,113,113,.28)" rx="12"/>
+            <text x="355" y="632" text-anchor="middle" class="node-title" fill="#f87171">Stop loss (−25%)</text>
+          </g>
+          <g class="node" data-tip="TRAILING_SL_TRIGGER=0.20 activates trailing stop. TRAILING_SL_BUFFER_PCT=0.05 below peak.">
+            <rect x="480" y="600" width="190" height="56" fill="rgba(245,158,11,.12)" stroke="rgba(251,191,36,.28)" rx="12"/>
+            <text x="575" y="632" text-anchor="middle" class="node-title" fill="#fbbf24">Trailing SL</text>
+          </g>
+          <g class="node" data-tip="FORCE_EXIT=15:15 or MAX_HOLDING_MINUTES=90 exceeded.">
+            <rect x="700" y="600" width="180" height="56" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)" rx="12"/>
+            <text x="790" y="632" text-anchor="middle" class="node-title" fill="#e5e7eb">Force exit 15:15</text>
+          </g>
+          <g class="node" data-tip="Manual stop, /kill command, or SIGTERM signal.">
+            <rect x="920" y="600" width="100" height="56" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)" rx="12"/>
+            <text x="970" y="632" text-anchor="middle" class="node-title" fill="#e5e7eb">Manual stop</text>
+          </g>
+
+          <!-- OUTPUTS ROW -->
+          <g class="node" data-tip="Daily log + trade CSV email through SMTP.">
+            <rect x="30" y="694" width="200" height="64" fill="rgba(20,184,166,.1)" stroke="rgba(45,212,191,.25)"/>
+            <text x="130" y="720" text-anchor="middle" class="node-title" fill="#2dd4bf">Email report</text>
+            <text x="130" y="738" text-anchor="middle" class="node-sub">send_logs_email.py</text>
+          </g>
+          <g class="node" data-tip="Turns trade CSV into Excel summary report.">
+            <rect x="290" y="694" width="182" height="64" fill="rgba(20,184,166,.1)" stroke="rgba(45,212,191,.25)"/>
+            <text x="381" y="720" text-anchor="middle" class="node-title" fill="#2dd4bf">Report generator</text>
+            <text x="381" y="738" text-anchor="middle" class="node-sub">report_generator.py</text>
+          </g>
+          <g class="node" data-tip="Full per-day application logs.">
+            <rect x="542" y="694" width="132" height="64" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)"/>
+            <text x="608" y="720" text-anchor="middle" class="node-title" fill="#e5e7eb">Log files</text>
+            <text x="608" y="738" text-anchor="middle" class="node-sub">logs/*.log</text>
+          </g>
+          <g class="node" data-tip="One row per trade, instance aware.">
+            <rect x="744" y="694" width="138" height="64" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)"/>
+            <text x="813" y="720" text-anchor="middle" class="node-title" fill="#e5e7eb">Trade CSV</text>
+            <text x="813" y="738" text-anchor="middle" class="node-sub">logs/trades.csv</text>
+          </g>
+          <g class="node" data-tip="Excel report artifact generated from trade CSV.">
+            <rect x="942" y="694" width="98" height="64" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)"/>
+            <text x="991" y="720" text-anchor="middle" class="node-title" fill="#e5e7eb">Excel</text>
+            <text x="991" y="738" text-anchor="middle" class="node-sub">reports/</text>
+          </g>
+
+          <!-- Exit → Outputs arrows -->
+          <line x1="135" y1="656" x2="130" y2="694" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#arrowTeal)"/>
+          <line x1="381" y1="656" x2="381" y2="694" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#arrowTeal)"/>
+          <line x1="608" y1="656" x2="608" y2="694" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowTeal)"/>
+          <line x1="813" y1="656" x2="813" y2="694" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowTeal)"/>
+          <line x1="991" y1="656" x2="991" y2="694" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowTeal)"/>
+        </svg>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background:#fb923c"></span>Cloudflare Worker (auto token)</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#2dd4bf"></span>Token / Notification</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#a78bfa"></span>Startup</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#fb923c"></span>Strategy core</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#60a5fa"></span>Support modules</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#cbd5e1"></span>Files / external</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 02: DAILY WORKFLOW ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">02</div>
+      <div>
+        <h2>Daily Workflow</h2>
+        <p>Timeline + 3-strategy dispatch + exit conditions.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <div class="dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+        <div class="label">workflow.svg</div>
+        <div class="hint">hover for details</div>
+      </div>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1060 700" xmlns="http://www.w3.org/2000/svg" aria-label="Workflow diagram">
+          <defs>
+            <marker id="wfArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/>
+            </marker>
+            <marker id="wfArrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/>
+            </marker>
+            <marker id="wfArrowOrange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#fb923c"/>
+            </marker>
+          </defs>
+
+          <!-- TIMELINE SECTION -->
+          <line x1="40" y1="78" x2="1020" y2="78" stroke="rgba(255,255,255,.16)" stroke-width="1.5"/>
+          <rect x="40" y="52" width="330" height="24" fill="rgba(148,163,184,.08)"/>
+          <rect x="370" y="52" width="590" height="24" fill="rgba(59,130,246,.06)"/>
+          <rect x="470" y="52" width="260" height="24" fill="rgba(16,185,129,.08)"/>
+          <text x="205" y="69" text-anchor="middle" class="node-sub" fill="#cbd5e1">Pre-market / token refresh</text>
+          <text x="665" y="69" text-anchor="middle" class="node-sub" fill="#60a5fa">Market open (9:15–15:30)</text>
+          <text x="600" y="69" text-anchor="middle" class="node-sub" fill="#34d399">Entry window active</text>
+
+          <g fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1">
+            <line x1="40" y1="70" x2="40" y2="86"/><line x1="140" y1="70" x2="140" y2="86"/><line x1="240" y1="70" x2="240" y2="86"/>
+            <line x1="340" y1="70" x2="340" y2="86"/><line x1="470" y1="70" x2="470" y2="86"/><line x1="730" y1="70" x2="730" y2="86"/>
+            <line x1="900" y1="70" x2="900" y2="86"/><line x1="980" y1="70" x2="980" y2="86"/>
+          </g>
+          <g class="node-sub" fill="#94a3b8">
+            <text x="40" y="100" text-anchor="middle">7:30</text><text x="140" y="100" text-anchor="middle">7:45</text>
+            <text x="240" y="100" text-anchor="middle">8:30</text><text x="340" y="100" text-anchor="middle">9:15</text>
+            <text x="470" y="100" text-anchor="middle">9:45</text><text x="730" y="100" text-anchor="middle">13:30</text>
+            <text x="900" y="100" text-anchor="middle">15:00</text><text x="980" y="100" text-anchor="middle">EOD</text>
+          </g>
+
+          <!-- TOP TIMELINE NODES -->
+          <g class="node" data-tip="Zerodha resets access tokens every day at 7:30 AM.">
+            <rect x="40" y="126" width="136" height="64" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.28)" rx="12"/>
+            <text x="108" y="152" text-anchor="middle" class="node-title" fill="#e5e7eb">Token expires</text>
+            <text x="108" y="170" text-anchor="middle" class="node-sub">7:30 AM reset</text>
+          </g>
+          <g class="node" data-tip="Reminder cron tells you to generate today's token.">
+            <rect x="178" y="126" width="144" height="64" fill="rgba(20,184,166,.12)" stroke="rgba(45,212,191,.28)" rx="12"/>
+            <text x="250" y="152" text-anchor="middle" class="node-title" fill="#2dd4bf">Cron: reminder</text>
+            <text x="250" y="170" text-anchor="middle" class="node-sub">7:45 AM</text>
+          </g>
+          <g class="node" data-tip="Paste request_token into Telegram; updater writes access token to .env.">
+            <rect x="330" y="126" width="150" height="64" fill="rgba(20,184,166,.12)" stroke="rgba(45,212,191,.28)" rx="12"/>
+            <text x="405" y="152" text-anchor="middle" class="node-title" fill="#2dd4bf">Paste token</text>
+            <text x="405" y="170" text-anchor="middle" class="node-sub">token_updater.py</text>
+          </g>
+          <g class="node" data-tip="Validate token at 9:15 AM; abort if invalid.">
+            <rect x="492" y="126" width="152" height="64" fill="rgba(139,92,246,.12)" stroke="rgba(167,139,250,.28)" rx="12"/>
+            <text x="568" y="152" text-anchor="middle" class="node-title" fill="#a78bfa">Validate token</text>
+            <text x="568" y="170" text-anchor="middle" class="node-sub">9:15 AM</text>
+          </g>
+          <g class="node" data-tip="3 strategies: ORB (9:45–10:50), Breakout (11:00–12:30), Mean Reversion (13:30–14:30). Each instance runs independently via screen session.">
+            <rect x="654" y="116" width="200" height="84" fill="rgba(249,115,22,.16)" stroke="rgba(251,146,60,.42)" rx="14"/>
+            <text x="754" y="143" text-anchor="middle" class="node-title" fill="#fb923c" style="font-size:14px">3-Strategy Dispatch</text>
+            <text x="754" y="163" text-anchor="middle" class="node-sub">ORB · Breakout · MR</text>
+            <text x="754" y="179" text-anchor="middle" class="node-sub">per-instance strategy</text>
+          </g>
+          <g class="node" data-tip="Close any open position at force-exit time.">
+            <rect x="864" y="126" width="146" height="64" fill="rgba(139,92,246,.12)" stroke="rgba(167,139,250,.28)" rx="12"/>
+            <text x="937" y="152" text-anchor="middle" class="node-title" fill="#a78bfa">Force exit</text>
+            <text x="937" y="170" text-anchor="middle" class="node-sub">15:00</text>
+          </g>
+
+          <!-- TOP TIMELINE ARROWS -->
+          <line x1="176" y1="158" x2="178" y2="158" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <line x1="322" y1="158" x2="330" y2="158" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#wfArrowTeal)"/>
+          <line x1="480" y1="158" x2="492" y2="158" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#wfArrowTeal)"/>
+          <line x1="644" y1="158" x2="654" y2="158" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <line x1="854" y1="158" x2="864" y2="158" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+
+          <!-- LOOP SECTION -->
+          <text x="40" y="266" class="row-label" fill="#94a3b8">INSIDE EACH LOOP ITERATION (every 1–5 sec)</text>
+          <line x1="40" y1="278" x2="1020" y2="278" class="divider"/>
+
+          <g class="node" data-tip="If current time >= force exit, close and stop.">
+            <rect x="40" y="302" width="148" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)" rx="12"/>
+            <text x="114" y="328" text-anchor="middle" class="node-title" fill="#60a5fa">Force exit?</text>
+            <text x="114" y="346" text-anchor="middle" class="node-sub">time check</text>
+          </g>
+          <g class="node" data-tip="Reload DailyState from JSON, check circuit breaker.">
+            <rect x="204" y="302" width="148" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)" rx="12"/>
+            <text x="278" y="328" text-anchor="middle" class="node-title" fill="#60a5fa">Reload state</text>
+            <text x="278" y="346" text-anchor="middle" class="node-sub">daily_state.json</text>
+          </g>
+          <g class="node" data-tip="Every 30s: compare local state.position vs broker positions. If mismatch → reconcile. If broker has position local doesn't → force-clear or alert. If local has position broker doesn't → clear state. This is the strongest safety net in the system.">
+            <rect x="368" y="294" width="178" height="80" fill="rgba(248,81,73,.1)" stroke="rgba(248,81,73,.45)" stroke-width="1.5" rx="12"/>
+            <text x="457" y="322" text-anchor="middle" class="node-title" fill="#f87171">State ↔ Broker?</text>
+            <text x="457" y="340" text-anchor="middle" class="node-sub">reconcile every 30s</text>
+            <text x="457" y="358" text-anchor="middle" style="font:600 10px var(--mono);fill:#f87171">mismatch → fix or exit</text>
+          </g>
+          <g class="node" data-tip="If position exists, manage exits. Otherwise try new entry.">
+            <rect x="562" y="302" width="172" height="64" fill="rgba(249,115,22,.12)" stroke="rgba(251,146,60,.35)" rx="12"/>
+            <text x="648" y="328" text-anchor="middle" class="node-title" fill="#fb923c">Position open?</text>
+            <text x="648" y="346" text-anchor="middle" class="node-sub">manage or try entry</text>
+          </g>
+          <g class="node" data-tip="Check in order: momentum exit (10–15min, Breakout only) → target → reversal → trailing SL → stop loss → time exit.">
+            <rect x="750" y="302" width="168" height="64" fill="rgba(249,115,22,.12)" stroke="rgba(251,146,60,.35)" rx="12"/>
+            <text x="834" y="328" text-anchor="middle" class="node-title" fill="#fb923c">Check exits</text>
+            <text x="834" y="346" text-anchor="middle" class="node-sub">7-step priority chain</text>
+          </g>
+          <g class="node" data-tip="Sleep 1s (active) or 3–5s (idle). Also polls Telegram commands.">
+            <rect x="934" y="302" width="86" height="64" fill="rgba(59,130,246,.1)" stroke="rgba(96,165,250,.25)" rx="12"/>
+            <text x="977" y="328" text-anchor="middle" class="node-title" fill="#60a5fa">Sleep</text>
+            <text x="977" y="346" text-anchor="middle" class="node-sub">1–5s</text>
+          </g>
+
+          <!-- LOOP ARROWS -->
+          <line x1="188" y1="334" x2="204" y2="334" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <line x1="352" y1="334" x2="368" y2="334" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <line x1="546" y1="334" x2="562" y2="334" stroke="#f87171" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <line x1="734" y1="334" x2="750" y2="334" stroke="#fb923c" stroke-width="1.5" marker-end="url(#wfArrowOrange)"/>
+          <line x1="918" y1="334" x2="934" y2="334" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#wfArrow)"/>
+          <!-- Desync branch: reconcile → force exit path -->
+          <path d="M457 374 V 430 H 114 V 420" fill="none" stroke="#f87171" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#wfArrow)"/>
+          <text x="260" y="448" text-anchor="middle" style="font:500 10px var(--mono);fill:#f87171">desync → force exit</text>
+          <!-- Loop back -->
+          <path d="M977 366 V 400 H 114 V 366" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#wfArrow)"/>
+          <text x="580" y="422" text-anchor="middle" class="node-sub">loops until force exit or manual stop</text>
+
+          <!-- EXIT PATHS SECTION -->
+          <text x="40" y="466" class="row-label" fill="#94a3b8">EXIT PATHS (OUTCOMES)</text>
+          <line x1="40" y1="478" x2="1020" y2="478" class="divider"/>
+
+          <g class="node" data-tip="Profit hit: current_ltp >= entry × (1 + 50%)">
+            <rect x="40" y="500" width="140" height="56" fill="rgba(16,185,129,.12)" stroke="rgba(52,211,153,.28)" rx="12"/>
+            <text x="110" y="532" text-anchor="middle" class="node-title" fill="#34d399">Target hit</text>
+          </g>
+          <g class="node" data-tip="Index crosses back through breakout level + 0.1% buffer — primary exit.">
+            <rect x="200" y="500" width="160" height="56" fill="rgba(96,165,250,.12)" stroke="rgba(96,165,250,.28)" rx="12"/>
+            <text x="280" y="525" text-anchor="middle" class="node-title" fill="#60a5fa">Reversal exit</text>
+            <text x="280" y="544" text-anchor="middle" class="node-sub">index-level trigger</text>
+          </g>
+          <g class="node" data-tip="Stop loss: current_ltp <= entry × (1 - 25%)">
+            <rect x="380" y="500" width="140" height="56" fill="rgba(239,68,68,.12)" stroke="rgba(248,113,113,.28)" rx="12"/>
+            <text x="450" y="532" text-anchor="middle" class="node-title" fill="#f87171">Stop loss</text>
+          </g>
+          <g class="node" data-tip="Trailing SL ratchets upward, never down.">
+            <rect x="540" y="500" width="160" height="56" fill="rgba(245,158,11,.12)" stroke="rgba(251,191,36,.28)" rx="12"/>
+            <text x="620" y="532" text-anchor="middle" class="node-title" fill="#fbbf24">Trailing SL hit</text>
+          </g>
+          <g class="node" data-tip="Close all positions at 15:15. ORB force exits at 10:50 before Breakout window.">
+            <rect x="720" y="500" width="150" height="56" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)" rx="12"/>
+            <text x="795" y="525" text-anchor="middle" class="node-title" fill="#e5e7eb">Force exit</text>
+            <text x="795" y="544" text-anchor="middle" class="node-sub">15:15 / ORB 10:50</text>
+          </g>
+          <g class="node" data-tip="Manual stop via /kill or /squareoff Telegram command.">
+            <rect x="890" y="500" width="130" height="56" fill="rgba(148,163,184,.12)" stroke="rgba(148,163,184,.25)" rx="12"/>
+            <text x="955" y="532" text-anchor="middle" class="node-title" fill="#e5e7eb">Manual stop</text>
+          </g>
+
+          <!-- ARROW FROM LOOP TO EXIT PATHS -->
+          <path d="M763 366 V 500" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#wfArrowOrange)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 03: CRON SCHEDULE ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">03</div>
+      <div>
+        <h2>Cron Schedule</h2>
+        <p>All scheduled jobs — times in IST (24h), weekdays only.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Always running — Telegram control bot + watchdog every 5 min</span>
+<span style="color:#fbbf24">@reboot</span>        screen -dmS telegram_bot python telegram_bot.py
+<span style="color:#fbbf24">*/5 * * * *</span>   watchdog — restarts telegram_bot if not running
+
+<span style="color:#94a3b8"># Token reminder — 7:30 AM weekdays</span>
+<span style="color:#fbbf24">30 7 * * 1-5</span>  python3 send_token_reminder.py
+
+<span style="color:#94a3b8"># Token validator — 9:15 AM weekdays</span>
+<span style="color:#fbbf24">15 9 * * 1-5</span>  python3 validate_token_at_915.py
+
+<span style="color:#94a3b8"># Health check — 9:20 AM weekdays</span>
+<span style="color:#fbbf24">20 9 * * 1-5</span>  python3 health_check_telegram.py
+
+<span style="color:#94a3b8"># Instance 1 — ORB Strategy (DRY) — starts 9:25 AM, entry 9:45–10:50</span>
+<span style="color:#fb923c">25 9 * * 1-5</span>   INSTANCE_ID=1 screen -S bot_instance_1 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Instance 2 — Breakout Strategy (LIVE) — starts 10:55 AM, entry 11:00–12:30</span>
+<span style="color:#fb923c">55 10 * * 1-5</span>  INSTANCE_ID=2 screen -S bot_instance_2 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Instance 3 — Mean Reversion Strategy (DRY) — starts 1:25 PM, entry 13:30–14:30</span>
+<span style="color:#fb923c">25 13 * * 1-5</span>  INSTANCE_ID=3 screen -S bot_instance_3 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Decision report — 7:00 PM weekdays</span>
+<span style="color:#fbbf24">0 19 * * 1-5</span>  run_daily_decision_report.sh
+
+<span style="color:#94a3b8"># Kill safety net — 8:00 PM (cleans up any hung processes)</span>
+<span style="color:#f87171">0 20 * * 1-5</span>  pkill -f "INSTANCE_ID=.*main.py"</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 04: TELEGRAM COMMANDS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">04</div>
+      <div>
+        <h2>Telegram Commands</h2>
+        <p>Remote control — works on all running instances simultaneously.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Status & Health</span>
+<span style="color:#60a5fa">/status</span>       → All instances: strategy, mode (DRY/LIVE), position, capital
+<span style="color:#60a5fa">/health</span>       → Quick instance health check
+<span style="color:#60a5fa">/healthcheck</span>  → Full system: token, funds, locks, panic files
+<span style="color:#60a5fa">/positions</span>    → Open positions from broker
+
+<span style="color:#94a3b8"># P&L</span>
+<span style="color:#60a5fa">/pnl</span>          → Today's P&L (live from broker)
+<span style="color:#60a5fa">/pnlall</span>       → All-time P&L (from trade logs)
+
+<span style="color:#94a3b8"># Instance Control</span>
+<span style="color:#fbbf24">/kill 1</span>       → Pause instance (no new trades)
+<span style="color:#fbbf24">/resume 1</span>     → Resume paused instance
+<span style="color:#fbbf24">/revive 1</span>     → Restart dead instance process
+<span style="color:#fbbf24">/killall</span>      → Pause all instances
+<span style="color:#fbbf24">/resumeall</span>    → Resume all instances
+
+<span style="color:#94a3b8"># Risk Control</span>
+<span style="color:#f87171">/squareoff 1</span>  → Force close position for instance
+<span style="color:#f87171">/panic</span>        → Emergency exit all positions + stop all bots
+
+<span style="color:#94a3b8"># Token</span>
+<span style="color:#a78bfa">/token &lt;request_token&gt;</span>  → Update Zerodha access token</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 05: KEY CONFIG PARAMETERS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">05</div>
+      <div>
+        <h2>Key Config Parameters</h2>
+        <p>From .env — critical values that control strategy behavior.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Capital & Risk</span>
+CAPITAL=50000              <span style="color:#94a3b8"># Total allocated capital per instance</span>
+RISK_PCT=0.05              <span style="color:#94a3b8"># 5% risk per trade</span>
+STOP_LOSS_PCT=0.25         <span style="color:#f87171"># Exit if option loses 25%</span>
+TARGET_PCT=0.50            <span style="color:#34d399"># Exit if option gains 50%</span>
+MAX_DAILY_LOSS_PCT=0.08    <span style="color:#f87171"># Circuit breaker at 8% daily loss</span>
+REVERSAL_BUFFER_PCT=0.001  <span style="color:#60a5fa"># 0.1% (~20 Nifty pts) before reversal exit</span>
+
+<span style="color:#94a3b8"># Timing</span>
+FORCE_EXIT=15:15           <span style="color:#94a3b8"># Hard close all positions</span>
+MAX_HOLDING_MINUTES=90     <span style="color:#94a3b8"># Auto-exit if held > 90 min</span>
+DEAD_ZONE_START=10:55      <span style="color:#94a3b8"># ORB → Breakout handoff buffer</span>
+DEAD_ZONE_END=11:00
+ENTRY_CUTOFF_TIME=12:30    <span style="color:#94a3b8"># Breakout entries blocked after this</span>
+NO_ENTRY_AFTER=14:30       <span style="color:#94a3b8"># Global — no new entries any strategy</span>
+
+<span style="color:#94a3b8"># Strategy per Instance</span>
+INSTANCE_1_STRATEGY=ORB       <span style="color:#94a3b8"># 📐 Opening Range Breakout (DRY)</span>
+INSTANCE_2_STRATEGY=BREAKOUT  <span style="color:#94a3b8"># 📈 Prev day high/low breakout (LIVE)</span>
+INSTANCE_3_STRATEGY=MR        <span style="color:#94a3b8"># 🔄 Mean Reversion / failed breakout (DRY)</span>
+
+<span style="color:#94a3b8"># ORB Config</span>
+ORB_RANGE_START=09:15      <span style="color:#94a3b8"># Start of opening range definition</span>
+ORB_RANGE_END=09:45        <span style="color:#94a3b8"># End of opening range definition</span>
+ORB_ENTRY_CUTOFF=10:55     <span style="color:#94a3b8"># ORB entries blocked after this</span>
+ORB_FORCE_EXIT=10:50       <span style="color:#94a3b8"># Force exit before Breakout window opens</span>
+
+<span style="color:#94a3b8"># MR Config</span>
+MR_ENTRY_START=13:30       <span style="color:#94a3b8"># MR window opens</span>
+MR_ENTRY_CUTOFF=14:30      <span style="color:#94a3b8"># MR entries blocked after this</span>
+
+<span style="color:#94a3b8"># Trade Limits per Instance</span>
+INSTANCE_1_MAX_TRADES=1    <span style="color:#94a3b8"># ORB: single trade by design</span>
+INSTANCE_2_MAX_TRADES=3    <span style="color:#94a3b8"># Breakout: multi-trade allowed</span>
+INSTANCE_3_MAX_TRADES=1    <span style="color:#94a3b8"># MR: single trade by design</span>
+
+<span style="color:#94a3b8"># Lot Sizes (Jan 2026)</span>
+NIFTY_LOT_SIZE=65
+BANKNIFTY_LOT_SIZE=30
+FINNIFTY_LOT_SIZE=60
+
+<span style="color:#94a3b8"># Instance Windows</span>
+INSTANCE_1_START=09:25   INSTANCE_1_END=15:15   <span style="color:#94a3b8"># ORB</span>
+INSTANCE_2_START=10:55   INSTANCE_2_END=15:15   <span style="color:#94a3b8"># Breakout</span>
+INSTANCE_3_START=13:25   INSTANCE_3_END=15:15   <span style="color:#94a3b8"># Mean Reversion</span></pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 06: STRATEGY TIMELINE ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">06</div>
+      <div>
+        <h2>Strategy Timeline</h2>
+        <p>Daily market phase segmentation across 3 instances.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8">TIME        INSTANCE   STRATEGY     MODE    ACTIVITY</span>
+<span style="color:#94a3b8">─────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">09:15–09:45</span>  Inst 1    ORB          DRY     Define opening range high/low
+<span style="color:#34d399">09:45–10:50</span>  Inst 1    ORB          DRY     Watch for range break → enter CE/PE
+<span style="color:#f87171">10:50</span>        Inst 1    ORB          DRY     Force exit — hand off capital to Breakout
+<span style="color:#94a3b8">10:55–11:00</span>  ALL       —            —       Dead zone — no entries
+<span style="color:#34d399">11:00–12:30</span>  Inst 2    Breakout     LIVE    Prev day high/low break → enter
+<span style="color:#94a3b8">12:30–13:30</span>  Inst 2    Breakout     LIVE    Manage open position only
+<span style="color:#34d399">13:30–14:30</span>  Inst 3    Mean Rev     DRY     Failed breakout → enter opposite
+<span style="color:#94a3b8">14:30–15:15</span>  ALL       —            —       Manage open positions only
+<span style="color:#f87171">15:15</span>        ALL       —            —       Force exit all positions
+
+<span style="color:#94a3b8">EXIT PRIORITY (checked in this exact order every loop):</span>
+  <span style="color:#fbbf24">0.</span> Momentum exit — 10–15 min after entry, spot move &lt; 0.15% → exit early  <span style="color:#fbbf24">← Breakout only</span>
+  <span style="color:#34d399">1.</span> Target hit (+50%)
+  <span style="color:#60a5fa">2.</span> Reversal exit — index crosses breakout level + 0.1% buffer (min 120s hold)
+  <span style="color:#fbbf24">3.</span> Trailing SL — activates once profit ≥ risk amount, trails below peak
+  <span style="color:#f87171">4.</span> Stop loss (-25%)
+  <span style="color:#94a3b8">5.</span> Time exit — held ≥ 90 min (fallback only)
+  <span style="color:#f87171">6.</span> Force exit — wall clock ≥ 15:15 (hard close, no exceptions)</pre>
+    </div>
+  </div>
+
+
+  <!-- ── SECTION 07: CAPITAL REQUIREMENTS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">07</div>
+      <div>
+        <h2>Capital Requirements</h2>
+        <p>What ₹50K can and cannot do — and what breaks at each level.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Position sizing formula</span>
+risk_amount    = CAPITAL × RISK_PCT        <span style="color:#94a3b8"># ₹50,000 × 0.05 = ₹2,500</span>
+max_sl_per_lot = entry_price × SL_PCT      <span style="color:#94a3b8"># ₹150 × 0.25 = ₹37.50</span>
+lots           = floor(risk / sl_per_lot)  <span style="color:#94a3b8"># floor(2500 / 37.50) = 66 → capped to 65</span>
+max_entry_price = risk / (SL_PCT × lots)   <span style="color:#94a3b8"># ₹2500 / (0.25 × 65) = ₹153.84 allowed</span>
+
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#94a3b8"># CAPITAL vs UNDERLYING VIABILITY</span>
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">₹50,000</span>   NIFTY ✅   BankNifty ❌   FINNIFTY ❌
+           <span style="color:#94a3b8">Only ATM options at ~₹150 × 65 lots ≈ ₹9,750 per trade</span>
+           <span style="color:#94a3b8">High-VIX days push options above allowed price → NO TRADE</span>
+           <span style="color:#94a3b8">FINNIFTY: needs ~₹6L  BankNifty: needs ~₹2L+</span>
+
+<span style="color:#34d399">₹1,00,000</span>  NIFTY ✅   BankNifty ⚠️   FINNIFTY ❌
+           <span style="color:#94a3b8">More strike flexibility on NIFTY, BankNifty marginal</span>
+
+<span style="color:#34d399">₹2,00,000</span>  NIFTY ✅   BankNifty ✅   FINNIFTY ❌
+           <span style="color:#94a3b8">Full multi-underlying on 2 of 3. Recommended minimum for this system.</span>
+
+<span style="color:#34d399">₹3,00,000+</span> NIFTY ✅   BankNifty ✅   FINNIFTY ✅
+           <span style="color:#94a3b8">System operates as designed across all underlyings</span>
+
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+<span style="color:#94a3b8"># CURRENT CONFIG (honest)</span>
+<span style="color:#94a3b8"># ─────────────────────────────────────────────────────────</span>
+INSTANCE_1_UNDERLYINGS=NIFTY  <span style="color:#f87171"># ORB: NIFTY only — FINNIFTY unreachable at ₹50K</span>
+INSTANCE_2_UNDERLYINGS=NIFTY  <span style="color:#fbbf24"># Breakout: NIFTY only (LIVE)</span>
+INSTANCE_3_UNDERLYINGS=NIFTY  <span style="color:#94a3b8"># MR: NIFTY only (DRY)</span>
+
+<span style="color:#94a3b8"># System was designed as multi-asset. It runs as single-asset at ₹50K.</span>
+<span style="color:#94a3b8"># Upgrade capital before enabling BankNifty or FINNIFTY.</span></pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 08: KNOWN LIMITATIONS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">08</div>
+      <div>
+        <h2>Known Limitations</h2>
+        <p>Real constraints — not edge cases, actual daily operating realities.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#f87171">1. DAILY TOKEN RENEWAL — MANUAL, NO AUTOMATION</span>
+   Zerodha access tokens expire at 7:30 AM daily.
+   Renewal requires a human to log into kite.zerodha.com and paste the token.
+   Miss the window → that day is lost. No recovery.
+
+<span style="color:#f87171">2. NO BACKTEST ENGINE</span>
+   All validation is forward DRY RUN only.
+   Hit rate, expectancy, max drawdown — unknown without months of live data.
+   You cannot know if the strategy has edge without running it.
+
+<span style="color:#fbbf24">3. SLIPPAGE NOT MODELED IN DRY RUN</span>
+   DRY RUN uses signal price as fill price with 0 slippage.
+   Live options spreads: ₹2–5+ on ATM strikes. On 65 lots that is ₹130–325 per entry.
+   At ₹150 entry price, a ₹3 spread = 2% cost on entry alone.
+   Real P&amp;L will be worse than DRY RUN shows.
+
+<span style="color:#fbbf24">4. REGIME FILTER IS A HEURISTIC</span>
+   0.8% prev-day range filter removes low-volatility days.
+   But some low-range days gap on news. Some high-range days are pure chop.
+   Filter improves average — it is not a precise signal.
+
+<span style="color:#fbbf24">5. ORB FORCE EXIT AT 10:50 CAPS WINNERS</span>
+   ORB positions moving in the right direction are hard-exited at 10:50.
+   Design choice (capital handoff to Breakout), but it limits ORB upside.
+
+<span style="color:#94a3b8">6. MR ENTRY HAS NO CANDLE CONFIRMATION</span>
+   MR enters as soon as breakout_seen + spot reverted.
+   Does not wait for a close back through the level on 5-min candle.
+   Some MR entries are early — spot reverting again after entry is possible.
+
+<span style="color:#94a3b8">7. NO VIX OR OPTIONS GREEKS AWARENESS</span>
+   India VIX below 12 → options cheap, theta burn fast, moves small.
+   India VIX above 20 → options expensive, slippage severe.
+   Neither handled. A VIX-based skip filter is phase 2.
+
+<span style="color:#94a3b8">8. NSE HOLIDAYS NOT AUTO-DETECTED</span>
+   Cron runs Mon–Fri. On exchange holidays the bot starts and polls with errors.
+   is_market_open() partially handles this via API response, but not reliably.
+
+<span style="color:#94a3b8">9. SINGLE SERVER, NO FAILOVER</span>
+   OCI free-tier instance. If it reboots, all instances stop.
+   No automatic restart of trading instances on reboot (only telegram_bot restarts).
+   Manual intervention required after any server restart during market hours.</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 09: FAILURE MODES ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">09</div>
+      <div>
+        <h2>Failure Modes</h2>
+        <p>What breaks, how likely, and what protects against it.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># ─── FAILURES THAT CAUSE MONEY LOSS ────────────────────────────────</span>
+
+<span style="color:#f87171">SCENARIO                        PROBABILITY   MITIGATION</span>
+<span style="color:#94a3b8">────────────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">API timeout during SL exit</span>      Medium        force_exit_until_closed() retry loop
+<span style="color:#fbbf24">Duplicate entry (race condition)</span> Low (fixed)   entry lock + entry_in_progress flag
+<span style="color:#fbbf24">State lost on restart</span>           Low (fixed)   atomic writes + startup reconciliation
+<span style="color:#fbbf24">Wrong OHLC levels</span>               Low           Kite API cache, dashboard PDH/PDL visible
+<span style="color:#94a3b8">Fake breakout (spike &amp; reverse)</span> Medium        is_fake_breakout() pre-entry check
+<span style="color:#94a3b8">Low-range filter miss</span>           Medium        0.8% threshold, tunable in .env
+<span style="color:#94a3b8">MR early entry (no confirmation)</span> Medium       breakout_seen 30-min window helps
+
+<span style="color:#94a3b8"># ─── FAILURES THAT STOP THE SYSTEM ─────────────────────────────────</span>
+
+<span style="color:#f87171">SCENARIO                        PROBABILITY   MITIGATION</span>
+<span style="color:#94a3b8">────────────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">Process crash (unhandled exc)</span>   Low           broad try/except, Telegram alert, /revive
+<span style="color:#fbbf24">Token expired mid-session</span>       Very Low      tokens valid until midnight, 9:15 check
+<span style="color:#fbbf24">Server reboot</span>                   Very Low      @reboot for telegram_bot, manual for trading
+<span style="color:#94a3b8">Kite rate limit</span>                 Medium        LTP cache (5s TTL), exponential backoff
+<span style="color:#94a3b8">Screen session detached</span>        Low           screen -r bot_instance_N to reattach
+
+<span style="color:#94a3b8"># ─── EMERGENCY ACTIONS ───────────────────────────────────────────────</span>
+
+<span style="color:#f87171">/panic</span>           → kills all instances, force exits all positions
+<span style="color:#f87171">/squareoff N</span>     → closes position for instance N only
+<span style="color:#94a3b8">Manual fallback</span>  → log in to kite.zerodha.com and close manually
+<span style="color:#94a3b8">Kill safety net</span>  → cron at 20:00 pkills all remaining processes</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 10: SUCCESS PROBABILITY ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">10</div>
+      <div>
+        <h2>Success Probability — Honest Assessment</h2>
+        <p>Real math, not marketing. Read before going fully live.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># ─── BREAKEVEN MATH ─────────────────────────────────────────────────</span>
+
+Expected Value = (hit_rate × avg_win) − ((1 − hit_rate) × avg_loss)
+
+<span style="color:#94a3b8">With current config (50% target, 25% SL, 65 lots, ~₹150 entry):</span>
+avg_win     ≈ <span style="color:#34d399">₹3,750</span>   (50% gain × ₹150 entry × 65 lots / 2 approx)
+avg_loss    ≈ <span style="color:#f87171">₹1,875</span>   (25% SL × ₹150 × 65 lots / 2 approx)
+
+Breakeven hit rate = 1875 / (3750 + 1875) = <span style="color:#fbbf24">~33%</span>
+
+<span style="color:#94a3b8">→ Win more than 1 in 3 trades → theoretically profitable.</span>
+<span style="color:#94a3b8">→ Actual hit rate unknown. Need 30+ live trades to measure.</span>
+
+<span style="color:#94a3b8"># ─── MARKET REGIME REALITY ──────────────────────────────────────────</span>
+
+Indian markets (rough historical distribution):
+  Strong trend days  ~30–35%   <span style="color:#34d399">Breakout ✅  ORB ✅  MR ❌</span>
+  Range / chop days  ~35–40%   <span style="color:#f87171">All strategies suffer</span>
+  Reversal days      ~25–30%   <span style="color:#34d399">MR ✅</span>  <span style="color:#f87171">Breakout ❌  ORB ❌</span>
+
+After regime filter (0.8% range threshold):
+  ~3–5 low-range days filtered per month
+  You still trade ~60–70% of days — cannot avoid reversals
+
+<span style="color:#94a3b8"># ─── REALISTIC P&amp;L AT ₹50K CAPITAL ─────────────────────────────────</span>
+
+Trading days / month   ~18–20
+After filter           ~13–17 days traded
+Expected hit rate      30–40%
+
+<span style="color:#34d399">Optimistic month</span>    Win days: ~6 × ₹3,000 = +₹18,000
+                    Loss days: ~10 × ₹1,800 = −₹18,000
+                    Net: <span style="color:#34d399">₹0 to +₹5,000</span>  (0–10% gross)
+
+<span style="color:#fbbf24">Realistic month</span>     Net: <span style="color:#fbbf24">−₹1,000 to +₹3,000</span>  (−2% to +6% gross)
+                    After brokerage + STT + GST: tighter
+
+<span style="color:#f87171">Pessimistic month</span>   Extended chop / reversal regime
+                    Net: <span style="color:#f87171">−₹5,000 to −₹8,000</span>  (−10% to −16%)
+
+<span style="color:#94a3b8"># ─── WHAT CHANGES THE PICTURE ───────────────────────────────────────</span>
+
+<span style="color:#34d399">+Capital (₹2L+)</span>     Strike flexibility, NIFTY + BankNifty, better R:R
+<span style="color:#34d399">+30 live trade days</span> Actual hit rate and win/loss measurable
+<span style="color:#34d399">+VIX filter</span>         Skip low-VIX days → fewer theta-bleed losses
+<span style="color:#34d399">+MR candle confirm</span>  Fewer early MR entries against trend
+
+<span style="color:#94a3b8"># ─── WHAT THIS SYSTEM IS GOOD FOR RIGHT NOW ─────────────────────────</span>
+
+<span style="color:#60a5fa">✅</span>  Learning how live algo options trading actually works
+<span style="color:#60a5fa">✅</span>  Building intuition about regime dependency
+<span style="color:#60a5fa">✅</span>  Identifying real failure modes invisible in backtests
+<span style="color:#60a5fa">✅</span>  Production infrastructure for when a real edge is found
+<span style="color:#f87171">❌</span>  Consistent income at ₹50K capital — not yet validated
+<span style="color:#f87171">❌</span>  Set-and-forget — requires daily oversight and token renewal
+
+<span style="color:#94a3b8"># ─── WHAT HAS BEEN VALIDATED ─────────────────────────────────────────</span>
+
+<span style="color:#34d399">✅</span>  Full position lifecycle (entry → monitoring → exit) in DRY RUN
+<span style="color:#34d399">✅</span>  State persistence survives restarts without position loss
+<span style="color:#34d399">✅</span>  Startup reconciliation resolves state/broker mismatches
+<span style="color:#34d399">✅</span>  Entry deduplication (locks + flags prevent duplicate orders)
+<span style="color:#34d399">✅</span>  Circuit breaker halts trading at daily loss limit
+<span style="color:#34d399">✅</span>  Regime filter skips low-range days correctly
+<span style="color:#34d399">✅</span>  Momentum exit fires in 10–15 min window (Breakout only)
+<span style="color:#34d399">✅</span>  MR breakout_seen prevents setups that never had a breakout
+<span style="color:#f87171">❌</span>  Hit rate / expectancy (need 30+ live trading days)
+<span style="color:#f87171">❌</span>  Slippage impact on real P&amp;L (DRY uses 0 slippage)
+<span style="color:#f87171">❌</span>  ORB/MR profitability (DRY only, insufficient data)
+<span style="color:#f87171">❌</span>  Performance on genuine strong trend days</pre>
+    </div>
+  </div>
+
+  <footer>
+    Zerodha NIFTY / BankNifty Options Bot &mdash; Architecture reference ·
+    <a href="https://kite.trade/docs/connect/v3/" target="_blank" rel="noreferrer">Kite Connect API docs</a>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-top: 12px;">
+      <div>Built &amp; maintained by <strong>Vadiraja Tantri M S</strong></div>
+      <div style="opacity:.8;">NetApp Storage Engineer · Automation · Trading Systems</div>
+      <div style="opacity:.7;">Bengaluru · India</div>
+      <div style="margin-top:6px;">
+        <a href="https://github.com/vadiraj1998" target="_blank">GitHub</a>
+        &middot;
+        <a href="https://www.linkedin.com/in/vadiraja-tantri-m-s" target="_blank">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const tipEl = document.getElementById('tip');
+  document.querySelectorAll('.node').forEach(node => {
+    node.addEventListener('mouseenter', e => {
+      const text = node.getAttribute('data-tip');
+      if (!text) return;
+      tipEl.textContent = text;
+      tipEl.classList.add('show');
+    });
+    node.addEventListener('mousemove', e => {
+      const pad = 14;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      const w = tipEl.offsetWidth;
+      const h = tipEl.offsetHeight;
+      if (x + w > window.innerWidth - 12) x = e.clientX - w - pad;
+      if (y + h > window.innerHeight - 12) y = e.clientY - h - pad;
+      tipEl.style.left = x + 'px';
+      tipEl.style.top = y + 'px';
+    });
+    node.addEventListener('mouseleave', () => tipEl.classList.remove('show'));
+  });
+</script>
+</body>
+</html>

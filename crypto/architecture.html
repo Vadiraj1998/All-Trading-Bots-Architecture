@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Fleet Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #080c10;
+    --surface: #0d1219;
+    --surface2: #131a24;
+    --border: #1e2a38;
+    --text: #c9d8e8;
+    --muted: #4a6070;
+    --green: #00e5a0;
+    --blue: #00b4ff;
+    --purple: #8b5cf6;
+    --orange: #ff8c42;
+    --red: #ff4466;
+    --yellow: #ffd700;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,180,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,180,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+
+  .header-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--blue);
+    border: 1px solid rgba(0,180,255,0.3);
+    padding: 6px 16px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #c9d8e8 0%, #00b4ff 50%, #00e5a0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-sub {
+    color: var(--muted);
+    font-size: 15px;
+    font-family: var(--mono);
+  }
+
+  /* Section headers */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Infrastructure bar */
+  .infra-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
+    margin-bottom: 48px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .infra-bar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--green), var(--purple));
+  }
+
+  .infra-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .infra-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .infra-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .infra-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2px;
+  }
+
+  /* Bot cards */
+  .bots-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+  }
+
+  .bot-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bot-card-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .bot-name {
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bot-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .badge-spot { background: rgba(0,229,160,0.15); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+  .badge-fno  { background: rgba(139,92,246,0.15); color: var(--purple); border: 1px solid rgba(139,92,246,0.3); }
+  .badge-dry  { background: rgba(0,180,255,0.15); color: var(--blue); border: 1px solid rgba(0,180,255,0.3); }
+
+  .bot-card-body { padding: 24px 28px; }
+
+  /* Architecture layers */
+  .arch-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .layer {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .layer:hover { border-color: rgba(0,180,255,0.3); }
+
+  .layer-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  .layer-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .layer-content { flex: 1; }
+
+  .layer-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .layer-detail {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .layer-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Schedule timeline */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+  }
+
+  .schedule-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .schedule-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .timeline {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .timeline-item {
+    display: flex;
+    gap: 16px;
+    padding-bottom: 16px;
+    position: relative;
+  }
+
+  .timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 35px;
+    top: 28px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .timeline-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--blue);
+    width: 55px;
+    flex-shrink: 0;
+    padding-top: 6px;
+    text-align: right;
+  }
+
+  .timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .timeline-content { flex: 1; }
+
+  .timeline-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .timeline-desc {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Risk params */
+  .params-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+  }
+
+  .params-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .params-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .params-body { padding: 20px 24px; }
+
+  .param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .param-row:last-child { border-bottom: none; }
+
+  .param-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .param-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Regime table */
+  .regime-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+
+  .regime-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .regime-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 0;
+  }
+
+  .regime-cell {
+    padding: 14px 20px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .regime-cell:last-child { border-right: none; }
+  .regime-cell.header { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; background: var(--surface2); }
+  .regime-cell.regime-name { font-weight: 600; color: var(--text); }
+
+  .action-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  /* Flow diagram */
+  .flow-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 48px;
+  }
+
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flow-step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 130px;
+    position: relative;
+  }
+
+  .flow-step-num {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .flow-step-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .flow-step-sub {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 18px;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .footer span { color: var(--blue); }
+
+  @media (max-width: 900px) {
+    .bots-grid, .schedule-grid, .params-grid, .regime-grid { grid-template-columns: 1fr; }
+    .infra-bar { grid-template-columns: 1fr 1fr; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #1c2538;padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;">
+  <a href="../index.html" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#3b9eff;text-decoration:none;white-space:nowrap;">TRADING FLEET</a>
+  <div style="display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;">
+    <a href="../index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">← Home</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇮🇳 Nifty</span>
+    <a href="../nifty/index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Overview</a>
+    <a href="../nifty/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <a href="../nifty/workflow.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Workflow</a>
+    <a href="../nifty/config.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Config</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇺🇸 US</span>
+    <a href="../us-bot/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
+    <a href="architecture.html" style="color:#00e5a0;text-decoration:none;padding:5px 10px;white-space:nowrap;background:rgba(0,229,160,0.08);border-radius:4px;">Architecture</a>
+  </div>
+</nav>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-tag">System Architecture v1.0</div>
+    <h1>Trading Fleet Architecture</h1>
+    <div class="header-sub">Crypto Spot + Crypto Futures · Oracle ARM · Local AI · Zero Cost</div>
+  </div>
+
+  <!-- Infrastructure -->
+  <div class="section-label">Infrastructure</div>
+  <div class="infra-bar">
+    <div class="infra-item">
+      <div class="infra-icon" style="background:rgba(0,180,255,0.1)">🖥️</div>
+      <div>
+        <div class="infra-label">Server</div>
+        <div class="infra-value">Oracle ARM Free Tier</div>
+      </div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon" style="background:rgba(0,229,160,0.1)">🧠</div>
+      <div>
+        <div class="infra-label">AI Engine</div>
+        <div class="infra-value">Ollama · Llama 3.1 8B</div>
+      </div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon" style="background:rgba(255,140,66,0.1)">📊</div>
+      <div>
+        <div class="infra-label">Data Source</div>
+        <div class="infra-value">Binance Public API</div>
+      </div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon" style="background:rgba(139,92,246,0.1)">💰</div>
+      <div>
+        <div class="infra-label">Monthly Cost</div>
+        <div class="infra-value" style="color:var(--green)">₹0 / month</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bot Architecture -->
+  <div class="section-label">Bot Architecture</div>
+  <div class="bots-grid">
+
+    <!-- Spot Bot -->
+    <div class="bot-card">
+      <div class="bot-card-header" style="border-top: 3px solid var(--green)">
+        <div class="bot-name">🤖 Crypto Spot Bot</div>
+        <div style="display:flex;gap:8px">
+          <span class="bot-badge badge-spot">SPOT</span>
+          <span class="bot-badge badge-dry">DRY RUN</span>
+        </div>
+      </div>
+      <div class="bot-card-body">
+        <div class="arch-layers">
+          <div class="layer">
+            <div class="layer-num">01</div>
+            <div class="layer-dot" style="background:var(--blue)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Data Fetcher</div>
+              <div class="layer-detail">30 pairs · 180d OHLCV · Nightly 23:00 UTC</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">data_fetcher.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">02</div>
+            <div class="layer-dot" style="background:var(--purple)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Regime Detector</div>
+              <div class="layer-detail">Llama 3.1 8B · Two-step prompt · 6 regimes</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(139,92,246,0.1);color:var(--purple)">regime_detector.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">03</div>
+            <div class="layer-dot" style="background:var(--yellow)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Backtester</div>
+              <div class="layer-detail">15 strategies · 30 pairs · 450 combos · Parallel</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(255,215,0,0.1);color:var(--yellow)">backtester.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">04</div>
+            <div class="layer-dot" style="background:var(--orange)"></div>
+            <div class="layer-content">
+              <div class="layer-title">AI Ranker</div>
+              <div class="layer-detail">Llama ranks top 3 · Conviction sizing · LONG filter</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(255,140,66,0.1);color:var(--orange)">ai_ranker.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">05</div>
+            <div class="layer-dot" style="background:var(--green)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Executor</div>
+              <div class="layer-detail">Weekly rotation · Stop loss · Trailing stop · Replacement</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(0,229,160,0.1);color:var(--green)">executor.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">06</div>
+            <div class="layer-dot" style="background:var(--blue)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Daily Scanner</div>
+              <div class="layer-detail">7/15 strategy agree · MIXED/RANGING only · 30d max hold</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">scanner.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">07</div>
+            <div class="layer-dot" style="background:var(--muted)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Reporter</div>
+              <div class="layer-detail">Telegram alerts · Weekly email · Calibration log</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(74,96,112,0.2);color:var(--muted)">reporter.py</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Futures Bot -->
+    <div class="bot-card">
+      <div class="bot-card-header" style="border-top: 3px solid var(--purple)">
+        <div class="bot-name">⚡ Crypto Futures Bot</div>
+        <div style="display:flex;gap:8px">
+          <span class="bot-badge badge-fno">3x FUTURES</span>
+          <span class="bot-badge badge-dry">DRY RUN</span>
+        </div>
+      </div>
+      <div class="bot-card-body">
+        <div class="arch-layers">
+          <div class="layer">
+            <div class="layer-num">01</div>
+            <div class="layer-dot" style="background:var(--blue)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Data Fetcher</div>
+              <div class="layer-detail">30 pairs · 180d OHLCV · Nightly 22:00 UTC</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">data_fetcher.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">02</div>
+            <div class="layer-dot" style="background:var(--purple)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Regime Detector</div>
+              <div class="layer-detail">Same AI · LONG/SHORT direction mapping</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(139,92,246,0.1);color:var(--purple)">regime_detector.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">03</div>
+            <div class="layer-dot" style="background:var(--yellow)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Backtester</div>
+              <div class="layer-detail">15 strategies · 30 pairs · MIN_WIN_RATE 35%</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(255,215,0,0.1);color:var(--yellow)">backtester.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">04</div>
+            <div class="layer-dot" style="background:var(--orange)"></div>
+            <div class="layer-content">
+              <div class="layer-title">AI Ranker</div>
+              <div class="layer-detail">LONG in bull · SHORT in bear · Conviction sizing</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(255,140,66,0.1);color:var(--orange)">ai_ranker.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">05</div>
+            <div class="layer-dot" style="background:var(--purple)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Executor</div>
+              <div class="layer-detail">3x leverage · Liquidation monitor · Funding rates · 15min SL</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(139,92,246,0.1);color:var(--purple)">executor.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">06</div>
+            <div class="layer-dot" style="background:var(--green)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Replacement Logic</div>
+              <div class="layer-detail">Max 2/week · Fires on SL/trailing only · Conviction sized</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(0,229,160,0.1);color:var(--green)">executor.py</span>
+          </div>
+          <div class="layer">
+            <div class="layer-num">07</div>
+            <div class="layer-dot" style="background:var(--muted)"></div>
+            <div class="layer-content">
+              <div class="layer-title">Reporter</div>
+              <div class="layer-detail">[FNO] prefix · Position alerts · Funding alerts</div>
+            </div>
+            <span class="layer-tag" style="background:rgba(74,96,112,0.2);color:var(--muted)">reporter.py</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Analysis Flow -->
+  <div class="section-label">Weekly Analysis Pipeline</div>
+  <div class="flow-card">
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 1</div>
+        <div class="flow-step-title">Fetch Data</div>
+        <div class="flow-step-sub">30 pairs · 180d</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 2</div>
+        <div class="flow-step-title">Detect Regime</div>
+        <div class="flow-step-sub">Llama 3.1 8B</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 3</div>
+        <div class="flow-step-title">Backtest</div>
+        <div class="flow-step-sub">450 combos</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 4</div>
+        <div class="flow-step-title">Direction Filter</div>
+        <div class="flow-step-sub">LONG/SHORT</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 5</div>
+        <div class="flow-step-title">AI Rank</div>
+        <div class="flow-step-sub">Top 3 picks</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 6</div>
+        <div class="flow-step-title">Execute</div>
+        <div class="flow-step-sub">Open positions</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-step-num">STEP 7</div>
+        <div class="flow-step-title">Report</div>
+        <div class="flow-step-sub">Telegram + Email</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div class="section-label">Schedule (UTC)</div>
+  <div class="schedule-grid">
+    <div class="schedule-card">
+      <div class="schedule-header" style="border-top:3px solid var(--green)">🤖 Spot Bot Schedule</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-time">23:00 Sun</div>
+          <div class="timeline-dot" style="background:var(--green)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Weekly Analysis + Rotation</div>
+            <div class="timeline-desc">Regime · Backtest · AI rank · Open positions</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">23:00 Daily</div>
+          <div class="timeline-dot" style="background:var(--blue)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Nightly Data Fetch</div>
+            <div class="timeline-desc">30 pairs · 180 candles each</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">00:30 Daily</div>
+          <div class="timeline-dot" style="background:var(--orange)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Daily Scanner</div>
+            <div class="timeline-desc">MIXED/RANGING only · 7/15 strategy agree</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">:05 Hourly</div>
+          <div class="timeline-dot" style="background:var(--red)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Stop Loss Check</div>
+            <div class="timeline-desc">Weekly bot positions · Trailing stop update</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="schedule-card">
+      <div class="schedule-header" style="border-top:3px solid var(--purple)">⚡ Futures Bot Schedule</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-time">00:00 Mon</div>
+          <div class="timeline-dot" style="background:var(--purple)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Weekly Analysis + Rotation</div>
+            <div class="timeline-desc">30 min after spot · Fresh picks · LONG+SHORT</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">22:00 Daily</div>
+          <div class="timeline-dot" style="background:var(--blue)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Nightly Data Fetch</div>
+            <div class="timeline-desc">30 pairs · Independent from spot</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">:15 min</div>
+          <div class="timeline-dot" style="background:var(--red)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Stop Loss + Funding Check</div>
+            <div class="timeline-desc">Every 15 min · Funding rate · Liquidation monitor</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-time">Every 8h</div>
+          <div class="timeline-dot" style="background:var(--yellow)"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Funding Rate Applied</div>
+            <div class="timeline-desc">0.01% per 8h on exposure · Deducted from PnL</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Parameters -->
+  <div class="section-label">Risk Parameters</div>
+  <div class="params-grid">
+    <div class="params-card">
+      <div class="params-header" style="border-top:3px solid var(--green)">🤖 Spot Bot</div>
+      <div class="params-body">
+        <div class="param-row">
+          <span class="param-name">Capital Allocation</span>
+          <span class="param-value" style="color:var(--green)">$800 weekly / $200 scanner</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Position Size</span>
+          <span class="param-value">90% of capital ÷ max positions</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Max Positions</span>
+          <span class="param-value">2 weekly + 2 scanner</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Stop Loss</span>
+          <span class="param-value" style="color:var(--red)">8% below entry</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Trailing Activates</span>
+          <span class="param-value" style="color:var(--orange)">+10% gain</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Trailing Distance</span>
+          <span class="param-value">5% below peak</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Kill Switch</span>
+          <span class="param-value" style="color:var(--red)">20% portfolio drawdown</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Max Replacements</span>
+          <span class="param-value">2 per week</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">High Conviction Sharpe</span>
+          <span class="param-value" style="color:var(--green)">≥ 2.5 → 100% size</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Dashboard Port</span>
+          <span class="param-value" style="color:var(--blue)">:5000</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="params-card">
+      <div class="params-header" style="border-top:3px solid var(--purple)">⚡ Futures Bot</div>
+      <div class="params-body">
+        <div class="param-row">
+          <span class="param-name">Capital</span>
+          <span class="param-value" style="color:var(--purple)">$1,000 virtual</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Leverage</span>
+          <span class="param-value" style="color:var(--purple)">3x perpetual</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Position Size</span>
+          <span class="param-value">20% margin → $600 exposure</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Max Positions</span>
+          <span class="param-value">3 concurrent</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Stop Loss</span>
+          <span class="param-value" style="color:var(--red)">4% on price (12% on margin)</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Trailing Activates</span>
+          <span class="param-value" style="color:var(--orange)">+6% gain</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Trailing Distance</span>
+          <span class="param-value">3% below peak</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Liquidation (3x)</span>
+          <span class="param-value" style="color:var(--red)">~33% adverse move</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Funding Rate</span>
+          <span class="param-value">0.01% per 8h on exposure</span>
+        </div>
+        <div class="param-row">
+          <span class="param-name">Dashboard Port</span>
+          <span class="param-value" style="color:var(--purple)">:5001</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regime Table -->
+  <div class="section-label">Regime → Action Mapping</div>
+  <div class="regime-card">
+    <div class="regime-header">🧠 AI Regime Detection · 6 Market States</div>
+    <div class="regime-grid">
+      <div class="regime-cell header">Regime</div>
+      <div class="regime-cell header">Spot Weekly</div>
+      <div class="regime-cell header">Spot Scanner</div>
+      <div class="regime-cell header">Futures</div>
+      <div class="regime-cell header">Direction</div>
+
+      <div class="regime-cell regime-name">TRENDING_BULL</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell" style="color:var(--green);font-weight:600">LONG</div>
+
+      <div class="regime-cell regime-name">RANGING</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell" style="color:var(--green);font-weight:600">LONG</div>
+
+      <div class="regime-cell regime-name">RECOVERING</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell" style="color:var(--green);font-weight:600">LONG</div>
+
+      <div class="regime-cell regime-name">TRENDING_BEAR</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(139,92,246,0.15);color:var(--purple)">TRADE</span></div>
+      <div class="regime-cell" style="color:var(--red);font-weight:600">SHORT</div>
+
+      <div class="regime-cell regime-name">MIXED</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(0,229,160,0.15);color:var(--green)">TRADE</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell" style="color:var(--muted)">BOTH</div>
+
+      <div class="regime-cell regime-name">HIGH_VOLATILE</div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell"><span class="action-badge" style="background:rgba(255,68,102,0.15);color:var(--red)">SIT OUT</span></div>
+      <div class="regime-cell" style="color:var(--red);font-weight:600">NONE</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Built and managed by <span>Vadiraja Tantri M</span> · Oracle ARM · ₹0/month · <span>crypto-bot v1.0</span>
+  </div>
+
+</div>
+</body>
+</html>

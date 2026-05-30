@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Fleet — Vadiraja Tantri M S</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #07090f;
+    --surface:  #0e1220;
+    --surface2: #141927;
+    --border:   #1c2538;
+    --text:     #dce8f5;
+    --muted:    #3d5068;
+    --dim:      #647d96;
+    --green:    #00e5a0;
+    --blue:     #3b9eff;
+    --purple:   #9b6dff;
+    --orange:   #ff7a3d;
+    --red:      #ff3d5c;
+    --yellow:   #f5c842;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Bebas Neue', sans-serif;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Dot grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(59,158,255,0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Top glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 900px; height: 500px;
+    background: radial-gradient(ellipse, rgba(59,158,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(7,9,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .nav-brand {
+    font-family: var(--display);
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--blue);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-links::-webkit-scrollbar { display: none; }
+
+  .nav-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 4px;
+    border-right: 1px solid var(--border);
+  }
+
+  .nav-group:last-child { border-right: none; }
+
+  .nav-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  .nav-link {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--dim);
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .nav-link:hover { color: var(--text); background: var(--surface); }
+  .nav-link.active { color: var(--blue); background: rgba(59,158,255,0.1); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    z-index: 1;
+    padding: 100px 48px 80px;
+    text-align: center;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--blue);
+    border: 1px solid rgba(59,158,255,0.25);
+    padding: 6px 16px;
+    border-radius: 2px;
+    margin-bottom: 32px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--blue);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .hero-title {
+    font-family: var(--display);
+    font-size: clamp(72px, 12vw, 160px);
+    letter-spacing: 4px;
+    line-height: 0.9;
+    color: var(--text);
+    animation: fadeUp 0.7s 0.1s ease both;
+    margin-bottom: 8px;
+  }
+
+  .hero-title span { color: var(--blue); }
+
+  .hero-sub {
+    font-family: var(--display);
+    font-size: clamp(24px, 4vw, 48px);
+    letter-spacing: 6px;
+    color: var(--muted);
+    animation: fadeUp 0.7s 0.2s ease both;
+    margin-bottom: 32px;
+  }
+
+  .hero-desc {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.9;
+    max-width: 600px;
+    margin: 0 auto 56px;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 700px;
+    margin: 0 auto;
+    animation: fadeUp 0.7s 0.4s ease both;
+  }
+
+  .stat {
+    flex: 1;
+    padding: 24px 20px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .stat:last-child { border-right: none; }
+
+  .stat-val {
+    font-family: var(--display);
+    font-size: 40px;
+    letter-spacing: 2px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 48px 80px;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── BOT CARDS ── */
+  .bots-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 64px;
+  }
+
+  .bot-card {
+    background: var(--surface);
+    padding: 36px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .bot-card:hover { background: var(--surface2); }
+
+  /* Accent strip */
+  .bot-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .bot-card.nifty::before  { background: linear-gradient(90deg, #ff7a3d, #f5c842); }
+  .bot-card.us::before     { background: linear-gradient(90deg, #9b6dff, #3b9eff); }
+  .bot-card.cspot::before  { background: linear-gradient(90deg, #00e5a0, #3b9eff); }
+  .bot-card.cfutures::before { background: linear-gradient(90deg, #9b6dff, #ff3d5c); }
+
+  /* Large bg number */
+  .bot-card::after {
+    content: attr(data-num);
+    position: absolute;
+    bottom: -16px; right: 8px;
+    font-family: var(--display);
+    font-size: 130px;
+    letter-spacing: -2px;
+    color: rgba(255,255,255,0.025);
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  .bot-status {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .status-live    { background: rgba(0,229,160,0.12); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
+  .status-dry     { background: rgba(59,158,255,0.1);  color: var(--blue);   border: 1px solid rgba(59,158,255,0.3); }
+  .status-partial { background: rgba(155,109,255,0.1); color: var(--purple); border: 1px solid rgba(155,109,255,0.3); }
+
+  .bot-name {
+    font-family: var(--display);
+    font-size: 40px;
+    letter-spacing: 2px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .bot-tagline {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 28px;
+  }
+
+  .bot-metrics {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .bm-val {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .bm-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  .bot-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    padding: 3px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    border-radius: 2px;
+  }
+
+  .bot-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .bot-link {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bot-link:hover {
+    color: var(--text);
+    border-color: var(--blue);
+    background: rgba(59,158,255,0.07);
+  }
+
+  .bot-link.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .bot-link.primary:hover {
+    background: #5fb3ff;
+    border-color: #5fb3ff;
+    color: #000;
+  }
+
+  /* ── INFRA ── */
+  .infra-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 64px;
+  }
+
+  .infra-item {
+    background: var(--surface);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .infra-icon {
+    font-size: 24px;
+  }
+
+  .infra-name {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .infra-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  /* ── SIGNAL FLOW ── */
+  .flow-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 64px;
+    overflow-x: auto;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 800px;
+    justify-content: center;
+  }
+
+  .flow-node {
+    text-align: center;
+    padding: 16px 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-width: 110px;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+
+  .flow-node:hover { border-color: rgba(59,158,255,0.4); }
+
+  .fn-step {
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .fn-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .fn-sub {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .flow-arr {
+    color: var(--muted);
+    font-size: 20px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 40px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+    gap: 20px;
+  }
+
+  .footer-left {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .footer-left strong { color: var(--blue); }
+
+  .footer-right {
+    display: flex;
+    gap: 16px;
+  }
+
+  .footer-link {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+    transition: all 0.15s;
+  }
+
+  .footer-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 900px) {
+    .hero { padding: 64px 24px 48px; }
+    .section { padding: 0 24px 48px; }
+    .bots-grid { grid-template-columns: 1fr; }
+    .infra-grid { grid-template-columns: 1fr 1fr; }
+    nav { padding: 0 16px; }
+    .nav-links { gap: 0; }
+    footer { flex-direction: column; padding: 32px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="nav-brand">TRADING FLEET</a>
+  <div class="nav-links">
+    <div class="nav-group">
+      <span class="nav-label">Home</span>
+      <a href="index.html" class="nav-link active">Overview</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-label">🇮🇳 Nifty</span>
+      <a href="nifty/index.html" class="nav-link">Overview</a>
+      <a href="nifty/architecture.html" class="nav-link">Architecture</a>
+      <a href="nifty/workflow.html" class="nav-link">Workflow</a>
+      <a href="nifty/config.html" class="nav-link">Config</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-label">🇺🇸 US Bot</span>
+      <a href="us-bot/architecture.html" class="nav-link">Architecture</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-label">₿ Crypto</span>
+      <a href="crypto/architecture.html" class="nav-link">Architecture</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">System Overview v2.0</div>
+  <div class="hero-title">TRADING<br><span>FLEET</span></div>
+  <div class="hero-sub">ARCHITECTURE DOCS</div>
+  <p class="hero-desc">
+    4 autonomous trading bots across Indian equities, US markets, and crypto.<br>
+    Running 24/7 on Oracle ARM free tier — ₹0/month cloud cost.
+  </p>
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-val" style="color:var(--blue)">4</div>
+      <div class="stat-label">Active Bots</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--green)">1</div>
+      <div class="stat-label">Live</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--yellow)">3</div>
+      <div class="stat-label">Dry Run</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--green)">₹0</div>
+      <div class="stat-label">Cloud / Month</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:var(--purple)">3</div>
+      <div class="stat-label">Markets</div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTS -->
+<section class="section">
+  <div class="section-label">The Fleet</div>
+  <div class="bots-grid">
+
+    <!-- Nifty Bot -->
+    <a class="bot-card nifty" href="nifty/index.html" data-num="01">
+      <div class="bot-status status-partial">1 Live · 2 Dry</div>
+      <div class="bot-name">NIFTY BOT</div>
+      <div class="bot-tagline">Zerodha F&O · ORB · Breakout · Mean Reversion · 3 Instances</div>
+      <div class="bot-metrics">
+        <div>
+          <div class="bm-val" style="color:var(--green)">LIVE</div>
+          <div class="bm-label">Breakout</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--yellow)">2 DRY</div>
+          <div class="bm-label">ORB + MR</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--orange)">3</div>
+          <div class="bm-label">Strategies</div>
+        </div>
+      </div>
+      <div class="bot-pills">
+        <span class="pill">Kite Connect API</span>
+        <span class="pill">Nifty · BankNifty · FinNifty</span>
+        <span class="pill">Cloudflare Auto-Token</span>
+        <span class="pill">Python 3.12</span>
+        <span class="pill">Ubuntu + cron</span>
+        <span class="pill">Telegram Control</span>
+      </div>
+      <div class="bot-links">
+        <span class="bot-link primary">Overview →</span>
+        <span class="bot-link">Architecture</span>
+        <span class="bot-link">Workflow</span>
+        <span class="bot-link">Config & Risk</span>
+      </div>
+    </a>
+
+    <!-- US Bot -->
+    <a class="bot-card us" href="us-bot/architecture.html" data-num="02">
+      <div class="bot-status status-dry">Dry Run</div>
+      <div class="bot-name">US BOT</div>
+      <div class="bot-tagline">IBKR · Earnings Momentum · Spot + Options · 51 Symbols</div>
+      <div class="bot-metrics">
+        <div>
+          <div class="bm-val" style="color:var(--purple)">51</div>
+          <div class="bm-label">Universe</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--blue)">3x</div>
+          <div class="bm-label">Max Positions</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--orange)">1%</div>
+          <div class="bm-label">Risk / Trade</div>
+        </div>
+      </div>
+      <div class="bot-pills">
+        <span class="pill">Interactive Brokers</span>
+        <span class="pill">Earnings Gap Strategy</span>
+        <span class="pill">ATM Calls 30 DTE</span>
+        <span class="pill">SPY Regime Filter</span>
+        <span class="pill">Docker + IBC</span>
+        <span class="pill">ATR-based Sizing</span>
+      </div>
+      <div class="bot-links">
+        <span class="bot-link primary">Architecture →</span>
+      </div>
+    </a>
+
+    <!-- Crypto Spot -->
+    <a class="bot-card cspot" href="crypto/architecture.html" data-num="03">
+      <div class="bot-status status-dry">Dry Run</div>
+      <div class="bot-name">CRYPTO SPOT</div>
+      <div class="bot-tagline">Binance · AI-Ranked Weekly Selection · 30 Pairs</div>
+      <div class="bot-metrics">
+        <div>
+          <div class="bm-val" style="color:var(--green)">30</div>
+          <div class="bm-label">Pairs</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--blue)">450</div>
+          <div class="bm-label">Backtested</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--green)">$800</div>
+          <div class="bm-label">Virtual Capital</div>
+        </div>
+      </div>
+      <div class="bot-pills">
+        <span class="pill">Binance Public API</span>
+        <span class="pill">Llama 3.1 8B (local)</span>
+        <span class="pill">6 Market Regimes</span>
+        <span class="pill">15 Strategies</span>
+        <span class="pill">Weekly Rotation</span>
+        <span class="pill">Ollama · Oracle ARM</span>
+      </div>
+      <div class="bot-links">
+        <span class="bot-link primary">Architecture →</span>
+      </div>
+    </a>
+
+    <!-- Crypto Futures -->
+    <a class="bot-card cfutures" href="crypto/architecture.html#futures" data-num="04">
+      <div class="bot-status status-dry">Dry Run</div>
+      <div class="bot-name">CRYPTO FUT</div>
+      <div class="bot-tagline">Binance Futures · 3x Leverage · Long + Short · 30 Pairs</div>
+      <div class="bot-metrics">
+        <div>
+          <div class="bm-val" style="color:var(--purple)">3x</div>
+          <div class="bm-label">Leverage</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--red)">4%</div>
+          <div class="bm-label">Stop Loss</div>
+        </div>
+        <div>
+          <div class="bm-val" style="color:var(--purple)">$1k</div>
+          <div class="bm-label">Virtual Capital</div>
+        </div>
+      </div>
+      <div class="bot-pills">
+        <span class="pill">Perpetual Futures</span>
+        <span class="pill">L/S Direction by Regime</span>
+        <span class="pill">Liquidation Monitor</span>
+        <span class="pill">Funding Rate Track</span>
+        <span class="pill">15-min SL Check</span>
+        <span class="pill">Conviction Sizing</span>
+      </div>
+      <div class="bot-links">
+        <span class="bot-link primary">Architecture →</span>
+      </div>
+    </a>
+
+  </div>
+</section>
+
+<!-- SHARED INFRA -->
+<section class="section">
+  <div class="section-label">Shared Infrastructure</div>
+  <div class="infra-grid">
+    <div class="infra-item">
+      <div class="infra-icon">🖥️</div>
+      <div class="infra-name">Server</div>
+      <div class="infra-val">Oracle ARM Free Tier<br><span style="color:var(--muted);font-size:12px">Ubuntu 22.04 · Always-on</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">🧠</div>
+      <div class="infra-name">Local AI</div>
+      <div class="infra-val">Ollama · Llama 3.1 8B<br><span style="color:var(--muted);font-size:12px">Regime detection · Ranking</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">📬</div>
+      <div class="infra-name">Alerts</div>
+      <div class="infra-val">Telegram + Email<br><span style="color:var(--muted);font-size:12px">All bots · Real-time</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">☁️</div>
+      <div class="infra-name">Token Auth</div>
+      <div class="infra-val">Cloudflare Worker<br><span style="color:var(--muted);font-size:12px">Zerodha auto-token capture</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">🐍</div>
+      <div class="infra-name">Runtime</div>
+      <div class="infra-val">Python 3.12<br><span style="color:var(--muted);font-size:12px">All bots · cron scheduled</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">💰</div>
+      <div class="infra-name">Monthly Cost</div>
+      <div class="infra-val" style="color:var(--green)">₹0 / month<br><span style="color:var(--muted);font-size:12px">100% free tier</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">🔒</div>
+      <div class="infra-name">State Storage</div>
+      <div class="infra-val">Local JSON files<br><span style="color:var(--muted);font-size:12px">positions · trades · logs</span></div>
+    </div>
+    <div class="infra-item">
+      <div class="infra-icon">🐳</div>
+      <div class="infra-name">US Gateway</div>
+      <div class="infra-val">Docker + IBC<br><span style="color:var(--muted);font-size:12px">IB Gateway · Port 4004</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- SIGNAL PIPELINE -->
+<section class="section">
+  <div class="section-label">Shared Analysis Pipeline (Crypto)</div>
+  <div class="flow-wrapper">
+    <div class="flow-row">
+      <div class="flow-node">
+        <div class="fn-step">STEP 01</div>
+        <div class="fn-title">Fetch OHLCV</div>
+        <div class="fn-sub">30 pairs · 180d</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 02</div>
+        <div class="fn-title">Regime Detect</div>
+        <div class="fn-sub">Llama 3.1 · 6 states</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 03</div>
+        <div class="fn-title">Backtest</div>
+        <div class="fn-sub">450 combinations</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 04</div>
+        <div class="fn-title">Direction Filter</div>
+        <div class="fn-sub">LONG / SHORT</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 05</div>
+        <div class="fn-title">AI Rank</div>
+        <div class="fn-sub">Top 3 picks</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 06</div>
+        <div class="fn-title">Execute</div>
+        <div class="fn-sub">Open positions</div>
+      </div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node">
+        <div class="fn-step">STEP 07</div>
+        <div class="fn-title">Report</div>
+        <div class="fn-sub">Telegram + Email</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    Built &amp; maintained by <strong>Vadiraja Tantri M S</strong><br>
+    Oracle ARM · ₹0/month · 4 bots across 3 markets
+  </div>
+  <div class="footer-right">
+    <a href="https://github.com/vadiraj1998" target="_blank" class="footer-link">GitHub</a>
+    <a href="https://www.linkedin.com/in/vadiraja-tantri-m-s" target="_blank" class="footer-link">LinkedIn</a>
+    <a href="nifty/index.html" class="footer-link">Nifty Bot</a>
+    <a href="us-bot/architecture.html" class="footer-link">US Bot</a>
+    <a href="crypto/architecture.html" class="footer-link">Crypto</a>
+  </div>
+</footer>
+
+</body>
+</html>

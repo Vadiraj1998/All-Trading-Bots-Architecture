@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zerodha Multi-Strategy Options Bot — Architecture & Workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #0f172a;
+    --border: rgba(255,255,255,.08);
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --blue: #60a5fa;
+    --blue-bg: rgba(59,130,246,.12);
+    --purple: #a78bfa;
+    --purple-bg: rgba(139,92,246,.12);
+    --orange: #fb923c;
+    --orange-bg: rgba(249,115,22,.14);
+    --teal: #2dd4bf;
+    --teal-bg: rgba(20,184,166,.12);
+    --green: #34d399;
+    --green-bg: rgba(16,185,129,.12);
+    --red: #f87171;
+    --red-bg: rgba(239,68,68,.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(245,158,11,.12);
+    --gray: #cbd5e1;
+    --gray-bg: rgba(148,163,184,.12);
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background:
+      linear-gradient(rgba(96,165,250,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96,165,250,.03) 1px, transparent 1px),
+      var(--bg);
+    background-size: 40px 40px, 40px 40px, auto;
+    color: var(--text);
+  }
+  .page { max-width: 1220px; margin: 0 auto; padding: 48px 24px 80px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid rgba(96,165,250,.28);
+    background: rgba(59,130,246,.1);
+    color: var(--blue);
+    border-radius: 999px; padding: 8px 12px;
+    font: 500 11px var(--mono); letter-spacing: .04em;
+  }
+  .eyebrow::before { content: '◉'; font-size: 9px; }
+  h1 {
+    margin: 16px 0 12px;
+    font: 700 clamp(30px, 5vw, 54px)/1.05 var(--mono);
+    letter-spacing: -.03em;
+  }
+  h1 span { color: var(--blue); }
+  h2 { margin: 0; font: 700 20px var(--mono); }
+  .sub { max-width: 720px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+  .badges { display:flex; flex-wrap:wrap; gap:10px; margin: 18px 0 0; }
+  .badge {
+    font: 500 11px var(--mono); padding: 7px 11px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,.03);
+  }
+  .section { margin-top: 56px; }
+  .section-title { display:flex; align-items:center; gap:14px; margin-bottom: 18px; }
+  .num {
+    width: 30px; height: 30px; border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(59,130,246,.12); color: var(--blue); border: 1px solid rgba(59,130,246,.2);
+    font: 700 11px var(--mono);
+  }
+  .section-title p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.24);
+  }
+  .toolbar {
+    height: 44px; display:flex; align-items:center; justify-content:space-between;
+    padding: 0 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+  }
+  .dots { display:flex; gap:7px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.red { background:#ff5f57; } .dot.yellow { background:#febc2e; } .dot.green { background:#28c840; }
+  .toolbar .label, .toolbar .hint { font: 500 11px var(--mono); color: var(--muted); }
+  .diagram-wrap { padding: 22px; overflow-x: auto; }
+  svg { width: 100%; height: auto; font-family: var(--sans); }
+  .row-label { font: 700 10px var(--mono); letter-spacing: .06em; opacity: .9; }
+  .divider { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+  .node rect { rx: 12; ry: 12; stroke-width: 1; }
+  .node-title { font: 700 13px var(--sans); }
+  .node-sub { font: 400 11px var(--sans); fill: var(--muted); }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; padding: 18px 22px 20px; border-top:1px solid var(--border); background: var(--panel-2); }
+  .legend-item { display:flex; align-items:center; gap:8px; color: var(--muted); font: 500 11px var(--mono); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
+  #tip {
+    position: fixed; z-index: 1000; pointer-events:none; opacity:0;
+    max-width: 260px; padding: 10px 12px; border-radius: 10px;
+    background: #0f172a; border: 1px solid rgba(255,255,255,.12);
+    color: var(--text); font: 500 12px/1.5 var(--mono); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    transition: opacity .12s ease;
+  }
+  #tip.show { opacity: 1; }
+  
+  /* Code blocks */
+  pre {
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 16px; border-radius: 12px; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.8;
+    color: var(--text); margin: 0;
+  }
+  
+  footer { margin-top: 48px; padding-top: 22px; border-top:1px solid var(--border); color:var(--muted); font: 500 11px var(--mono); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  
+  @media (max-width: 720px) {
+    .page { padding: 32px 14px 60px; }
+    .diagram-wrap { padding: 12px; }
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #1c2538;padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4px;">
+  <a href="../index.html" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:#3b9eff;text-decoration:none;white-space:nowrap;">TRADING FLEET</a>
+  <div style="display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;">
+    <a href="../index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">← Home</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇮🇳 Nifty</span>
+    <a href="index.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-overview">Overview</a>
+    <a href="architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-arch">Architecture</a>
+    <a href="workflow.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-flow">Workflow</a>
+    <a href="config.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;" id="nl-cfg">Config</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">🇺🇸 US</span>
+    <a href="../us-bot/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+    <span style="padding:0 8px;color:#1c2538;">|</span>
+    <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
+    <a href="../crypto/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
+  </div>
+</nav>
+<div id="tip"></div>
+
+<div class="page" style="padding-top:32px">
+  <div class="eyebrow">ZERODHA MULTI-STRATEGY OPTIONS BOT — ORB · BREAKOUT · MEAN REVERSION</div>
+  <h1>Architecture & <span>Workflow</span></h1>
+  <p class="sub">A clean visual reference for the bot's system architecture, token lifecycle, daily workflow, multi-strategy dispatch, exit conditions, and cron schedule.</p>
+  <div class="badges">
+    <div class="badge">Ubuntu Server + cron</div>
+    <div class="badge">Kite Connect API</div>
+    <div class="badge">Python 3.12</div>
+    <div class="badge">☁️ Cloudflare Worker (auto token)</div>
+    <div class="badge">📐 ORB — Instance 1 DRY</div>
+    <div class="badge">📈 Breakout — Instance 2 LIVE</div>
+    <div class="badge">🔄 Mean Reversion — Instance 3 DRY</div>
+    <div class="badge">Reversal Exit</div>
+    <div class="badge">LTP Fallback + Retry</div>
+    <div class="badge">Telegram Control Layer</div>
+    <div class="badge">Circuit Breaker</div>
+  </div>
+  <!-- ── SECTION 03: CRON SCHEDULE ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">03</div>
+      <div>
+        <h2>Cron Schedule</h2>
+        <p>All scheduled jobs — times in IST (24h), weekdays only.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Always running — Telegram control bot + watchdog every 5 min</span>
+<span style="color:#fbbf24">@reboot</span>        screen -dmS telegram_bot python telegram_bot.py
+<span style="color:#fbbf24">*/5 * * * *</span>   watchdog — restarts telegram_bot if not running
+
+<span style="color:#94a3b8"># Token reminder — 7:30 AM weekdays (just open kite.zerodha.com and log in — CF Worker does the rest)</span>
+<span style="color:#fbbf24">30 7 * * 1-5</span>  python3 send_token_reminder.py
+
+<span style="color:#94a3b8"># token_receiver.py Flask server — always running, receives auto-captured token from Cloudflare Worker</span>
+<span style="color:#fb923c">@reboot</span>        screen -dmS token_receiver python3 token_receiver.py
+
+<span style="color:#94a3b8"># ── MANUAL TOKEN BACKUP (if Cloudflare Worker fails) ────────────────
+# 1. Open kite.zerodha.com → login → copy request_token from redirect URL
+# 2. Send via Telegram: /token &lt;request_token&gt;
+# 3. telegram_bot.py calls token_updater.py which writes to .env
+# Normal flow (Cloudflare): login → CF Worker auto-POSTs to token_receiver.py → done</span>
+
+<span style="color:#94a3b8"># Token validator — 9:15 AM weekdays</span>
+<span style="color:#fbbf24">15 9 * * 1-5</span>  python3 validate_token_at_915.py
+
+<span style="color:#94a3b8"># Health check — 9:20 AM weekdays</span>
+<span style="color:#fbbf24">20 9 * * 1-5</span>  python3 health_check_telegram.py
+
+<span style="color:#94a3b8"># Instance 1 — ORB Strategy (DRY) — starts 9:25 AM, entry 9:45–10:50</span>
+<span style="color:#fb923c">25 9 * * 1-5</span>   INSTANCE_ID=1 screen -S bot_instance_1 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Instance 2 — Breakout Strategy (LIVE) — starts 10:55 AM, entry 11:00–12:30</span>
+<span style="color:#fb923c">55 10 * * 1-5</span>  INSTANCE_ID=2 screen -S bot_instance_2 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Instance 3 — Mean Reversion Strategy (DRY) — starts 1:25 PM, entry 13:30–14:30</span>
+<span style="color:#fb923c">25 13 * * 1-5</span>  INSTANCE_ID=3 screen -S bot_instance_3 -d -m python3 main.py
+
+<span style="color:#94a3b8"># Decision report — 7:00 PM weekdays</span>
+<span style="color:#fbbf24">0 19 * * 1-5</span>  run_daily_decision_report.sh
+
+<span style="color:#94a3b8"># Kill safety net — 8:00 PM (cleans up any hung processes)</span>
+<span style="color:#f87171">0 20 * * 1-5</span>  pkill -f "INSTANCE_ID=.*main.py"</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 04: TELEGRAM COMMANDS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">04</div>
+      <div>
+        <h2>Telegram Commands</h2>
+        <p>Remote control — works on all running instances simultaneously.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Status & Health</span>
+<span style="color:#60a5fa">/status</span>       → All instances: strategy, mode (DRY/LIVE), position, capital
+<span style="color:#60a5fa">/health</span>       → Quick instance health check
+<span style="color:#60a5fa">/healthcheck</span>  → Full system: token, funds, locks, panic files
+<span style="color:#60a5fa">/positions</span>    → Open positions from broker
+
+<span style="color:#94a3b8"># P&L</span>
+<span style="color:#60a5fa">/pnl</span>          → Today's P&L (live from broker)
+<span style="color:#60a5fa">/pnlall</span>       → All-time P&L (from trade logs)
+
+<span style="color:#94a3b8"># Instance Control</span>
+<span style="color:#fbbf24">/kill 1</span>       → Pause instance (no new trades)
+<span style="color:#fbbf24">/resume 1</span>     → Resume paused instance
+<span style="color:#fbbf24">/revive 1</span>     → Restart dead instance process
+<span style="color:#fbbf24">/killall</span>      → Pause all instances
+<span style="color:#fbbf24">/resumeall</span>    → Resume all instances
+
+<span style="color:#94a3b8"># Risk Control</span>
+<span style="color:#f87171">/squareoff 1</span>  → Force close position for instance
+<span style="color:#f87171">/panic</span>        → Emergency exit all positions + stop all bots
+
+<span style="color:#94a3b8"># Token — manual fallback only (token is normally auto-captured via Cloudflare Worker)</span>
+<span style="color:#a78bfa">/token &lt;request_token&gt;</span>  → Manual token update (fallback if CF Worker fails)</pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 05: KEY CONFIG PARAMETERS ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">05</div>
+      <div>
+        <h2>Key Config Parameters</h2>
+        <p>From .env — critical values that control strategy behavior.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8"># Capital & Risk</span>
+CAPITAL=50000              <span style="color:#94a3b8"># Total allocated capital per instance</span>
+RISK_PCT=0.05              <span style="color:#94a3b8"># 5% risk per trade</span>
+STOP_LOSS_PCT=0.25         <span style="color:#f87171"># Exit if option loses 25%</span>
+TARGET_PCT=0.50            <span style="color:#34d399"># Exit if option gains 50%</span>
+MAX_DAILY_LOSS_PCT=0.08    <span style="color:#f87171"># Circuit breaker at 8% daily loss</span>
+REVERSAL_BUFFER_PCT=0.001  <span style="color:#60a5fa"># 0.1% (~20 Nifty pts) before reversal exit</span>
+
+<span style="color:#94a3b8"># Timing</span>
+FORCE_EXIT=15:15           <span style="color:#94a3b8"># Hard close all positions</span>
+MAX_HOLDING_MINUTES=90     <span style="color:#94a3b8"># Auto-exit if held > 90 min</span>
+DEAD_ZONE_START=10:55      <span style="color:#94a3b8"># ORB → Breakout handoff buffer</span>
+DEAD_ZONE_END=11:00
+ENTRY_CUTOFF_TIME=12:30    <span style="color:#94a3b8"># Breakout entries blocked after this</span>
+NO_ENTRY_AFTER=14:30       <span style="color:#94a3b8"># Global — no new entries any strategy</span>
+
+<span style="color:#94a3b8"># Strategy per Instance</span>
+INSTANCE_1_STRATEGY=ORB       <span style="color:#94a3b8"># 📐 Opening Range Breakout (DRY)</span>
+INSTANCE_2_STRATEGY=BREAKOUT  <span style="color:#94a3b8"># 📈 Prev day high/low breakout (LIVE)</span>
+INSTANCE_3_STRATEGY=MR        <span style="color:#94a3b8"># 🔄 Mean Reversion / failed breakout (DRY)</span>
+
+<span style="color:#94a3b8"># ORB Config</span>
+ORB_RANGE_START=09:15      <span style="color:#94a3b8"># Start of opening range definition</span>
+ORB_RANGE_END=09:45        <span style="color:#94a3b8"># End of opening range definition</span>
+ORB_ENTRY_CUTOFF=10:55     <span style="color:#94a3b8"># ORB entries blocked after this</span>
+ORB_FORCE_EXIT=10:50       <span style="color:#94a3b8"># Force exit before Breakout window opens</span>
+
+<span style="color:#94a3b8"># MR Config</span>
+MR_ENTRY_START=13:30       <span style="color:#94a3b8"># MR window opens</span>
+MR_ENTRY_CUTOFF=14:30      <span style="color:#94a3b8"># MR entries blocked after this</span>
+
+<span style="color:#94a3b8"># Trade Limits per Instance</span>
+INSTANCE_1_MAX_TRADES=1    <span style="color:#94a3b8"># ORB: single trade by design</span>
+INSTANCE_2_MAX_TRADES=3    <span style="color:#94a3b8"># Breakout: multi-trade allowed</span>
+INSTANCE_3_MAX_TRADES=1    <span style="color:#94a3b8"># MR: single trade by design</span>
+
+<span style="color:#94a3b8"># Lot Sizes (Jan 2026)</span>
+NIFTY_LOT_SIZE=65
+BANKNIFTY_LOT_SIZE=30
+FINNIFTY_LOT_SIZE=60
+
+<span style="color:#94a3b8"># Instance Windows</span>
+INSTANCE_1_START=09:25   INSTANCE_1_END=15:15   <span style="color:#94a3b8"># ORB</span>
+INSTANCE_2_START=10:55   INSTANCE_2_END=15:15   <span style="color:#94a3b8"># Breakout</span>
+INSTANCE_3_START=13:25   INSTANCE_3_END=15:15   <span style="color:#94a3b8"># Mean Reversion</span></pre>
+    </div>
+  </div>
+
+  <!-- ── SECTION 06: STRATEGY TIMELINE ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">06</div>
+      <div>
+        <h2>Strategy Timeline</h2>
+        <p>Daily market phase segmentation across 3 instances.</p>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px;">
+      <pre><span style="color:#94a3b8">TIME        INSTANCE   STRATEGY     MODE    ACTIVITY</span>
+<span style="color:#94a3b8">─────────────────────────────────────────────────────────────</span>
+<span style="color:#fbbf24">09:15–09:45</span>  Inst 1    ORB          DRY     Define opening range high/low
+<span style="color:#34d399">09:45–10:50</span>  Inst 1    ORB          DRY     Watch for range break → enter CE/PE
+<span style="color:#f87171">10:50</span>        Inst 1    ORB          DRY     Force exit — hand off capital to Breakout
+<span style="color:#94a3b8">10:55–11:00</span>  ALL       —            —       Dead zone — no entries
+<span style="color:#34d399">11:00–12:30</span>  Inst 2    Breakout     LIVE    Prev day high/low break → enter
+<span style="color:#94a3b8">12:30–13:30</span>  Inst 2    Breakout     LIVE    Manage open position only
+<span style="color:#34d399">13:30–14:30</span>  Inst 3    Mean Rev     DRY     Failed breakout → enter opposite
+<span style="color:#94a3b8">14:30–15:15</span>  ALL       —            —       Manage open positions only
+<span style="color:#f87171">15:15</span>        ALL       —            —       Force exit all positions
+
+<span style="color:#94a3b8">EXIT PRIORITY (checked in this exact order every loop):</span>
+  <span style="color:#fbbf24">0.</span> Momentum exit — 10–15 min after entry, spot move &lt; 0.15% → exit early  <span style="color:#fbbf24">← Breakout only</span>
+  <span style="color:#34d399">1.</span> Target hit (+50%)
+  <span style="color:#60a5fa">2.</span> Reversal exit — index crosses breakout level + 0.1% buffer (min 120s hold)
+  <span style="color:#fbbf24">3.</span> Trailing SL — activates once profit ≥ risk amount, trails below peak
+  <span style="color:#f87171">4.</span> Stop loss (-25%)
+  <span style="color:#94a3b8">5.</span> Time exit — held ≥ 90 min (fallback only)
+  <span style="color:#f87171">6.</span> Force exit — wall clock ≥ 15:15 (hard close, no exceptions)</pre>
+    </div>
+  </div>
+
+
+  <footer>
+    Zerodha NIFTY / BankNifty Options Bot &mdash; Architecture reference ·
+    <a href="https://kite.trade/docs/connect/v3/" target="_blank" rel="noreferrer">Kite Connect API docs</a>
+    <div style="display:flex; flex-direction:column; gap:6px; margin-top: 12px;">
+      <div>Built &amp; maintained by <strong>Vadiraja Tantri M S</strong></div>
+      <div style="opacity:.8;">NetApp Storage Engineer · Automation · Trading Systems</div>
+      <div style="opacity:.7;">Bengaluru · India</div>
+      <div style="margin-top:6px;">
+        <a href="https://github.com/vadiraj1998" target="_blank">GitHub</a>
+        &middot;
+        <a href="https://www.linkedin.com/in/vadiraja-tantri-m-s" target="_blank">LinkedIn</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const tipEl = document.getElementById('tip');
+  document.querySelectorAll('.node').forEach(node => {
+    node.addEventListener('mouseenter', e => {
+      const text = node.getAttribute('data-tip');
+      if (!text) return;
+      tipEl.textContent = text;
+      tipEl.classList.add('show');
+    });
+    node.addEventListener('mousemove', e => {
+      const pad = 14;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      const w = tipEl.offsetWidth;
+      const h = tipEl.offsetHeight;
+      if (x + w > window.innerWidth - 12) x = e.clientX - w - pad;
+      if (y + h > window.innerHeight - 12) y = e.clientY - h - pad;
+      tipEl.style.left = x + 'px';
+      tipEl.style.top = y + 'px';
+    });
+    node.addEventListener('mouseleave', () => tipEl.classList.remove('show'));
+  });
+</script>
+</body>
