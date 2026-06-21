@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trading Fleet Architecture</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;700&display=swap');
 
   :root {
-    --bg: #080c10;
-    --surface: #0d1219;
-    --surface2: #131a24;
-    --border: #1e2a38;
-    --text: #c9d8e8;
-    --muted: #4a6070;
-    --green: #00e5a0;
-    --blue: #00b4ff;
-    --purple: #8b5cf6;
-    --orange: #ff8c42;
-    --red: #ff4466;
-    --yellow: #ffd700;
+    --bg: #0b1020;
+    --surface: #111827;
+    --surface2: #0f172a;
+    --border: rgba(255,255,255,.08);
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --green: #34d399;
+    --blue: #60a5fa;
+    --purple: #a78bfa;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #fbbf24;
     --mono: 'JetBrains Mono', monospace;
-    --sans: 'Space Grotesk', sans-serif;
+    --sans: 'DM Sans', sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,8 +40,8 @@
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(0,180,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,180,255,0.03) 1px, transparent 1px);
+      linear-gradient(rgba(96,165,250,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96,165,250,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
@@ -68,7 +68,7 @@
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--blue);
-    border: 1px solid rgba(0,180,255,0.3);
+    border: 1px solid rgba(96,165,250,0.3);
     padding: 6px 16px;
     border-radius: 2px;
     margin-bottom: 20px;
@@ -80,7 +80,7 @@
     letter-spacing: -1px;
     line-height: 1.1;
     margin-bottom: 16px;
-    background: linear-gradient(135deg, #c9d8e8 0%, #00b4ff 50%, #00e5a0 100%);
+    background: linear-gradient(135deg, #e5e7eb 0%, #60a5fa 50%, #34d399 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -207,7 +207,7 @@
 
   .badge-spot { background: rgba(0,229,160,0.15); color: var(--green); border: 1px solid rgba(0,229,160,0.3); }
   .badge-fno  { background: rgba(139,92,246,0.15); color: var(--purple); border: 1px solid rgba(139,92,246,0.3); }
-  .badge-dry  { background: rgba(0,180,255,0.15); color: var(--blue); border: 1px solid rgba(0,180,255,0.3); }
+  .badge-dry  { background: rgba(96,165,250,0.15); color: var(--blue); border: 1px solid rgba(96,165,250,0.3); }
 
   .bot-card-body { padding: 24px 28px; }
 
@@ -230,7 +230,7 @@
     transition: border-color 0.2s;
   }
 
-  .layer:hover { border-color: rgba(0,180,255,0.3); }
+  .layer:hover { border-color: rgba(96,165,250,0.3); }
 
   .layer-num {
     font-family: var(--mono);
@@ -539,7 +539,7 @@
     <a href="../us-bot/architecture.html" style="color:#3d5068;text-decoration:none;padding:5px 10px;white-space:nowrap;">Architecture</a>
     <span style="padding:0 8px;color:#1c2538;">|</span>
     <span style="color:#3d5068;padding:0 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;">₿ Crypto</span>
-    <a href="architecture.html" style="color:#00e5a0;text-decoration:none;padding:5px 10px;white-space:nowrap;background:rgba(0,229,160,0.08);border-radius:4px;">Architecture</a>
+    <a href="architecture.html" style="color:#3b9eff;text-decoration:none;padding:5px 10px;white-space:nowrap;background:rgba(59,158,255,0.1);border-radius:4px;">Architecture</a>
   </div>
 </nav>
 <div class="container">
@@ -555,7 +555,7 @@
   <div class="section-label">Infrastructure</div>
   <div class="infra-bar">
     <div class="infra-item">
-      <div class="infra-icon" style="background:rgba(0,180,255,0.1)">🖥️</div>
+      <div class="infra-icon" style="background:rgba(96,165,250,0.1)">🖥️</div>
       <div>
         <div class="infra-label">Server</div>
         <div class="infra-value">Oracle ARM Free Tier</div>
@@ -606,7 +606,7 @@
               <div class="layer-title">Data Fetcher</div>
               <div class="layer-detail">30 pairs · 180d OHLCV · Nightly 23:00 UTC</div>
             </div>
-            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">data_fetcher.py</span>
+            <span class="layer-tag" style="background:rgba(96,165,250,0.1);color:var(--blue)">data_fetcher.py</span>
           </div>
           <div class="layer">
             <div class="layer-num">02</div>
@@ -651,7 +651,7 @@
               <div class="layer-title">Daily Scanner</div>
               <div class="layer-detail">7/15 strategy agree · MIXED/RANGING only · 30d max hold</div>
             </div>
-            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">scanner.py</span>
+            <span class="layer-tag" style="background:rgba(96,165,250,0.1);color:var(--blue)">scanner.py</span>
           </div>
           <div class="layer">
             <div class="layer-num">07</div>
@@ -684,7 +684,7 @@
               <div class="layer-title">Data Fetcher</div>
               <div class="layer-detail">30 pairs · 180d OHLCV · Nightly 22:00 UTC</div>
             </div>
-            <span class="layer-tag" style="background:rgba(0,180,255,0.1);color:var(--blue)">data_fetcher.py</span>
+            <span class="layer-tag" style="background:rgba(96,165,250,0.1);color:var(--blue)">data_fetcher.py</span>
           </div>
           <div class="layer">
             <div class="layer-num">02</div>
